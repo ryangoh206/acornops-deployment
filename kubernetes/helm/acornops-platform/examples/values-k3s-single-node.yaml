@@ -1,0 +1,37 @@
+platform:
+  publicUrl: http://acornops.local
+  consoleUrl: http://console.acornops.local
+
+exposure:
+  ingress:
+    apiHost: acornops.local
+    consoleHost: console.acornops.local
+    tls:
+      enabled: false
+      secretName: ""
+
+agent:
+  routing:
+    distributedEnabled: false
+
+auth:
+  oidc:
+    issuerUrl: https://identity.acornops.local/realms/acornops
+
+components:
+  managementConsole:
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false
+  controlPlane:
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false
+  executionEngine:
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false
+  llmGateway:
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false

@@ -1,0 +1,107 @@
+{{- if and .Values.migrations.enabled .Values.components.controlPlane.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane-migrate") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "control-plane-migrate") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": {{ .Values.migrations.hookDeletePolicy | quote }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane-migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.components.controlPlane.podSecurityContext | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "acornops-platform.image" (dict "root" . "image" .Values.components.controlPlane.image) | quote }}
+          imagePullPolicy: {{ .Values.components.controlPlane.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.components.controlPlane.containerSecurityContext | nindent 12 }}
+          command: ["node", "dist/scripts/control-plane-db.js", "migrate"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.controlPlane.databaseUrl }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+{{- if and .Values.migrations.enabled .Values.components.llmGateway.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway-migrate") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway-migrate") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-9"
+    "helm.sh/hook-delete-policy": {{ .Values.migrations.hookDeletePolicy | quote }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway-migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.components.llmGateway.podSecurityContext | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "acornops-platform.image" (dict "root" . "image" .Values.components.llmGateway.image) | quote }}
+          imagePullPolicy: {{ .Values.components.llmGateway.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.components.llmGateway.containerSecurityContext | nindent 12 }}
+          command: ["sh", "-c", "alembic upgrade head"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.databaseUrl }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.redisUrl }}
+            - name: SECRETS_BACKEND
+              value: {{ .Values.components.llmGateway.secretsBackend | quote }}
+            - name: SECRETS_CACHE_TTL_SEC
+              value: {{ .Values.components.llmGateway.secretsCacheTtlSeconds | quote }}
+            - name: SECRETS_KEK_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.secretsKekBase64 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

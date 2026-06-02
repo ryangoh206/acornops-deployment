@@ -1,0 +1,398 @@
+{{- if .Values.networkPolicies.enabled }}
+{{- $np := .Values.networkPolicies }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.fullname" . }}-default-deny
+  labels:
+    {{- include "acornops-platform.labels" . | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "acornops-platform.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+{{- if .Values.components.managementConsole.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "management-console") }}-ingress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "management-console") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "management-console") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- toYaml $np.ingressController.from | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.managementConsole.service.targetPort }}
+{{- end }}
+{{- if .Values.components.controlPlane.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}-ingress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- if .Values.exposure.ingress.enabled }}
+    - from:
+        {{- toYaml $np.ingressController.from | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.controlPlane.service.targetPort }}
+    {{- end }}
+    {{- if .Values.components.executionEngine.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+    {{- end }}
+    {{- if .Values.components.llmGateway.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+    {{- end }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}-egress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.components.executionEngine.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.executionEngine.service.targetPort }}
+    {{- end }}
+    {{- if .Values.components.llmGateway.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.llmGateway.service.targetPort }}
+    {{- end }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+    {{- if and $np.dns.enabled $np.dns.to }}
+    - to:
+        {{- toYaml $np.dns.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.dns.ports | nindent 8 }}
+    {{- end }}
+    {{- if and $np.publicInternet.enabled $np.publicInternet.to }}
+    - to:
+        {{- toYaml $np.publicInternet.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.publicInternet.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.postgres.to }}
+    - to:
+        {{- toYaml $np.postgres.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.postgres.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.redis.to }}
+    - to:
+        {{- toYaml $np.redis.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.redis.ports | nindent 8 }}
+    {{- end }}
+    {{- with $np.extraEgress.controlPlane }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- if .Values.components.executionEngine.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}-ingress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "execution-engine") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- if .Values.components.controlPlane.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.executionEngine.service.targetPort }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}-egress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "execution-engine") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.components.controlPlane.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+    {{- end }}
+    {{- if .Values.components.llmGateway.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.llmGateway.service.targetPort }}
+    {{- end }}
+    {{- if and $np.dns.enabled $np.dns.to }}
+    - to:
+        {{- toYaml $np.dns.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.dns.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.postgres.to }}
+    - to:
+        {{- toYaml $np.postgres.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.postgres.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.redis.to }}
+    - to:
+        {{- toYaml $np.redis.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.redis.ports | nindent 8 }}
+    {{- end }}
+    {{- with $np.extraEgress.executionEngine }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- if .Values.components.llmGateway.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}-ingress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- if .Values.components.controlPlane.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.llmGateway.service.targetPort }}
+    {{- end }}
+    {{- if .Values.components.executionEngine.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.components.llmGateway.service.targetPort }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}-egress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.components.controlPlane.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ ternary .Values.internalTransport.tls.controlPlane.internalPort .Values.components.controlPlane.service.targetPort .Values.internalTransport.tls.enabled }}
+    {{- end }}
+    {{- if and $np.dns.enabled $np.dns.to }}
+    - to:
+        {{- toYaml $np.dns.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.dns.ports | nindent 8 }}
+    {{- end }}
+    {{- if and $np.publicInternet.enabled $np.publicInternet.to }}
+    - to:
+        {{- toYaml $np.publicInternet.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.publicInternet.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.postgres.to }}
+    - to:
+        {{- toYaml $np.postgres.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.postgres.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.redis.to }}
+    - to:
+        {{- toYaml $np.redis.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.redis.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.vault.to }}
+    - to:
+        {{- toYaml $np.vault.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.vault.ports | nindent 8 }}
+    {{- end }}
+    {{- with $np.extraEgress.llmGateway }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- if and .Values.migrations.enabled .Values.components.controlPlane.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane-migrate") }}-egress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "control-plane-migrate") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "control-plane-migrate") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if and $np.dns.enabled $np.dns.to }}
+    - to:
+        {{- toYaml $np.dns.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.dns.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.postgres.to }}
+    - to:
+        {{- toYaml $np.postgres.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.postgres.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.redis.to }}
+    - to:
+        {{- toYaml $np.redis.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.redis.ports | nindent 8 }}
+    {{- end }}
+    {{- with $np.extraEgress.controlPlaneMigrate }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- if and .Values.migrations.enabled .Values.components.llmGateway.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway-migrate") }}-egress
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway-migrate") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway-migrate") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- if and $np.dns.enabled $np.dns.to }}
+    - to:
+        {{- toYaml $np.dns.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.dns.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.postgres.to }}
+    - to:
+        {{- toYaml $np.postgres.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.postgres.ports | nindent 8 }}
+    {{- end }}
+    {{- if $np.redis.to }}
+    - to:
+        {{- toYaml $np.redis.to | nindent 8 }}
+      ports:
+        {{- toYaml $np.redis.ports | nindent 8 }}
+    {{- end }}
+    {{- with $np.extraEgress.llmGatewayMigrate }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

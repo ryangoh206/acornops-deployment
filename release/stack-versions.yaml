@@ -1,0 +1,37 @@
+apiVersion: acornops.dev/v1alpha1
+kind: StackVersionMatrix
+metadata:
+  name: acornops-stack
+  updatedAt: "2026-03-03"
+
+stacks:
+  - name: local-dev
+    description: Local full-stack source-mounted development profile.
+    components:
+      managementConsole: acornops/management-console:local
+      controlPlane: acornops/control-plane:local
+      executionEngine: acornops/execution-engine:local
+      llmGateway: acornops/llm-gateway:local
+      k8sAgent: acornops/k8s-agent:local
+
+  - name: vm-prod-v1
+    description: Baseline Docker-on-VM production stack.
+    components:
+      managementConsole: ghcr.io/acornops/management-console:0.0.1-experimental.1
+      controlPlane: ghcr.io/acornops/control-plane:0.0.1-experimental.1
+      executionEngine: ghcr.io/acornops/execution-engine:0.0.1-experimental.1
+      llmGateway: ghcr.io/acornops/llm-gateway:0.0.1-experimental.1
+
+  - name: k8s-platform-v1
+    description: Kubernetes platform stack deployed with the acornops-platform Helm chart.
+    components:
+      managementConsole: ghcr.io/acornops/management-console:0.0.1-experimental.1
+      controlPlane: ghcr.io/acornops/control-plane:0.0.1-experimental.1
+      executionEngine: ghcr.io/acornops/execution-engine:0.0.1-experimental.1
+      llmGateway: ghcr.io/acornops/llm-gateway:0.0.1-experimental.1
+
+compatibility:
+  notes:
+    - Keep control-plane, execution-engine, and llm-gateway on the same stack version.
+    - Treat database-backed services as resettable while AcornOps remains pre-release.
+    - Treat this matrix as release source-of-truth for docs and deployment examples.

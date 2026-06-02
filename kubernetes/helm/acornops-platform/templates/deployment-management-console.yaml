@@ -1,0 +1,83 @@
+{{- if .Values.components.managementConsole.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "management-console") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "management-console") | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.managementConsole.replicas }}
+  selector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "management-console") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "management-console") | nindent 8 }}
+        {{- with .Values.components.managementConsole.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.components.managementConsole.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.components.managementConsole.podSecurityContext | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "management-console") }}
+      {{- end }}
+      containers:
+        - name: management-console
+          image: {{ include "acornops-platform.image" (dict "root" . "image" .Values.components.managementConsole.image) | quote }}
+          imagePullPolicy: {{ .Values.components.managementConsole.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.components.managementConsole.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.managementConsole.service.targetPort }}
+              protocol: TCP
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.components.managementConsole.locales.existingConfigMap }}
+            - name: runtime-locales
+              mountPath: /usr/share/nginx/html/locales
+              readOnly: true
+            {{- end }}
+          {{- with .Values.components.managementConsole.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.components.managementConsole.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ include "acornops-platform.pathWithTrailingSlash" .Values.components.managementConsole.basePath | quote }}
+              port: http
+          readinessProbe:
+            httpGet:
+              path: {{ include "acornops-platform.pathWithTrailingSlash" .Values.components.managementConsole.basePath | quote }}
+              port: http
+          resources:
+            {{- toYaml .Values.components.managementConsole.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.components.managementConsole.locales.existingConfigMap }}
+        - name: runtime-locales
+          configMap:
+            name: {{ .Values.components.managementConsole.locales.existingConfigMap | quote }}
+        {{- end }}
+      {{- include "acornops-platform.workloadScheduling" (dict "values" .Values.components.managementConsole) | nindent 6 }}
+{{- end }}

@@ -1,0 +1,17 @@
+{{- $components := dict "management-console" .Values.components.managementConsole "control-plane" .Values.components.controlPlane "execution-engine" .Values.components.executionEngine "llm-gateway" .Values.components.llmGateway -}}
+{{- range $component, $values := $components }}
+{{- if and $values.enabled $values.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" $ "component" $component) }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" $ "component" $component) | nindent 4 }}
+spec:
+  minAvailable: {{ $values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" $ "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}

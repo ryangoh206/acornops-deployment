@@ -1,0 +1,120 @@
+{{- if .Values.components.executionEngine.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "execution-engine") | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.executionEngine.replicas }}
+  selector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "execution-engine") | nindent 8 }}
+        {{- with .Values.components.executionEngine.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.components.executionEngine.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.components.executionEngine.podSecurityContext | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}
+      {{- end }}
+      containers:
+        - name: execution-engine
+          image: {{ include "acornops-platform.image" (dict "root" . "image" .Values.components.executionEngine.image) | quote }}
+          imagePullPolicy: {{ .Values.components.executionEngine.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.components.executionEngine.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.executionEngine.service.targetPort }}
+              protocol: TCP
+            {{- if .Values.internalTransport.tls.enabled }}
+            - name: health
+              containerPort: {{ .Values.internalTransport.tls.health.executionEnginePort }}
+              protocol: TCP
+            {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.internalTransport.tls.enabled }}
+            - name: internal-transport-ca
+              mountPath: {{ printf "%s/ca" (include "acornops-platform.internalTlsMountPath" .) | quote }}
+              readOnly: true
+            - name: internal-transport-execution-engine
+              mountPath: {{ printf "%s/execution-engine" (include "acornops-platform.internalTlsMountPath" .) | quote }}
+              readOnly: true
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}
+            {{- with .Values.components.executionEngine.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: ORCH_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.controlPlane.orchestrationServiceToken }}
+            - name: EXECUTION_ENGINE_DISPATCH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.executionEngine.dispatchToken }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.executionEngine.redisUrl }}
+            {{- with .Values.components.executionEngine.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ ternary "health" "http" .Values.internalTransport.tls.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ ternary "health" "http" .Values.internalTransport.tls.enabled }}
+          resources:
+            {{- toYaml .Values.components.executionEngine.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.internalTransport.tls.enabled }}
+        - name: internal-transport-ca
+          secret:
+            secretName: {{ required "internalTransport.tls.ca.secretName is required when internal TLS is enabled" .Values.internalTransport.tls.ca.secretName | quote }}
+            items:
+              - key: {{ .Values.internalTransport.tls.ca.key | quote }}
+                path: {{ .Values.internalTransport.tls.ca.key | quote }}
+        - name: internal-transport-execution-engine
+          secret:
+            secretName: {{ required "internalTransport.tls.certificates.executionEngine.secretName is required when internal TLS is enabled" .Values.internalTransport.tls.certificates.executionEngine.secretName | quote }}
+            items:
+              - key: {{ .Values.internalTransport.tls.certificates.executionEngine.certKey | quote }}
+                path: {{ .Values.internalTransport.tls.certificates.executionEngine.certKey | quote }}
+              - key: {{ .Values.internalTransport.tls.certificates.executionEngine.keyKey | quote }}
+                path: {{ .Values.internalTransport.tls.certificates.executionEngine.keyKey | quote }}
+        {{- end }}
+      {{- include "acornops-platform.workloadScheduling" (dict "values" .Values.components.executionEngine) | nindent 6 }}
+{{- end }}

@@ -1,0 +1,90 @@
+{
+  "repo": "deployment",
+  "version": 1,
+  "runtimeDependencies": [
+    "management-console",
+    "control-plane",
+    "execution-engine",
+    "llm-gateway",
+    "k8s-agent",
+    "vm-agent"
+  ],
+  "contractSurfaces": {
+    "composeProfiles": ["local", "prod", "oidc-dex", "oidc-keycloak", "local-vault"],
+    "publicHosts": ["console.acornops.dev", "docs.acornops.dev", "api.acornops.dev"],
+    "publicRoutes": ["/", "/api/v1", "/api/v1/auth/oidc/callback", "/admin/v1"],
+    "envTracks": ["local", "vm", "k8s"],
+    "emailVerificationEnv": [
+      "PASSWORD_EMAIL_VERIFICATION_REQUIRED",
+      "PASSWORD_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS",
+      "PASSWORD_EMAIL_VERIFICATION_RESEND_WINDOW_SECONDS",
+      "PASSWORD_SIGNUP_ALLOW_UNVERIFIED_EMAIL",
+      "PASSWORD_RESET_ENABLED",
+      "PASSWORD_RESET_TOKEN_TTL_SECONDS",
+      "PASSWORD_RESET_REQUEST_WINDOW_SECONDS",
+      "EMAIL_DELIVERY_MODE",
+      "EMAIL_DELIVERY_ALLOW_LOG_IN_PRODUCTION",
+      "EMAIL_FROM",
+      "EMAIL_PUBLIC_BASE_URL",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USERNAME",
+      "SMTP_PASSWORD",
+      "SMTP_SECURE",
+      "SMTP_REQUIRE_TLS"
+    ],
+    "adminApiEnv": [
+      "CONTROL_PLANE_ADMIN_API_ENABLED",
+      "CONTROL_PLANE_ADMIN_TOKENS_JSON",
+      "CONTROL_PLANE_ADMIN_AUTH_FAILURE_WINDOW_SECONDS",
+      "CONTROL_PLANE_ADMIN_AUTH_FAILURE_MAX_ATTEMPTS"
+    ],
+    "workspacePlanEnv": ["WORKSPACE_PLANS_CONFIG_JSON"],
+    "auditLoggingEnv": [
+      "WORKSPACE_AUDIT_LOGGING_MODE",
+      "WORKSPACE_AUDIT_RETENTION_DAYS"
+    ],
+    "adminApiHelmValues": [
+      "adminApi.enabled",
+      "adminApi.ingress.enabled",
+      "adminApi.tokens.existingSecretName",
+      "adminApi.tokens.tokensJsonKey"
+    ],
+    "workspacePlanHelmValues": [
+      "workspacePlans.defaultPlanKey",
+      "workspacePlans.plans[].{key,name,quotas.members,quotas.kubernetesClusters,quotas.virtualMachines}"
+    ],
+    "auditLoggingHelmValues": [
+      "auditLogging.mode",
+      "auditLogging.retentionDays"
+    ],
+    "k8sAgentRolloutEnv": [
+      "ACORNOPS_AGENT_PLATFORM_URL",
+      "ACORNOPS_CLUSTER_ID",
+      "ACORNOPS_AGENT_KEY"
+    ],
+    "vmAgentLocalEnv": [
+      "ACORNOPS_AGENT_PLATFORM_URL",
+      "ACORNOPS_AGENT_ALLOW_INSECURE_TRANSPORT",
+      "ACORNOPS_TARGET_ID",
+      "ACORNOPS_AGENT_KEY",
+      "ACORNOPS_AGENT_TARGET_TYPE",
+      "ACORNOPS_VM_COLLECTOR_MODE",
+      "ACORNOPS_VM_OS_FAMILY",
+      "ACORNOPS_VM_SERVICE_MANAGER",
+      "ACORNOPS_VM_ALLOWED_LOG_SOURCES"
+    ],
+    "localAgentInsecureTransportEnv": ["ACORNOPS_AGENT_ALLOW_INSECURE_TRANSPORT"],
+    "localDeterministicLlmEnv": ["LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES"],
+    "internalTransportTlsValues": [
+      "internalTransport.tls.enabled",
+      "internalTransport.tls.requireClientCert",
+      "internalTransport.tls.ca.secretName",
+      "internalTransport.tls.ca.key",
+      "internalTransport.tls.certificates.controlPlane.secretName",
+      "internalTransport.tls.certificates.executionEngine.secretName",
+      "internalTransport.tls.certificates.llmGateway.secretName"
+    ],
+    "releaseMetadata": "release/stack-versions.yaml"
+  }
+}

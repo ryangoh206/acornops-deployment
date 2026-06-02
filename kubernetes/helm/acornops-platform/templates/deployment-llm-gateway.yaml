@@ -1,0 +1,131 @@
+{{- if .Values.components.llmGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway") | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.llmGateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "acornops-platform.selectorLabels" (dict "root" . "component" "llm-gateway") | nindent 8 }}
+        {{- with .Values.components.llmGateway.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.components.llmGateway.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.components.llmGateway.podSecurityContext | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}
+      {{- end }}
+      containers:
+        - name: llm-gateway
+          image: {{ include "acornops-platform.image" (dict "root" . "image" .Values.components.llmGateway.image) | quote }}
+          imagePullPolicy: {{ .Values.components.llmGateway.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.components.llmGateway.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.llmGateway.service.targetPort }}
+              protocol: TCP
+            {{- if .Values.internalTransport.tls.enabled }}
+            - name: health
+              containerPort: {{ .Values.internalTransport.tls.health.llmGatewayPort }}
+              protocol: TCP
+            {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.internalTransport.tls.enabled }}
+            - name: internal-transport-ca
+              mountPath: {{ printf "%s/ca" (include "acornops-platform.internalTlsMountPath" .) | quote }}
+              readOnly: true
+            - name: internal-transport-llm-gateway
+              mountPath: {{ printf "%s/llm-gateway" (include "acornops-platform.internalTlsMountPath" .) | quote }}
+              readOnly: true
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}
+            {{- with .Values.components.llmGateway.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.databaseUrl }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.redisUrl }}
+            - name: ADMIN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.adminToken }}
+            - name: SECRETS_KEK_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.secretsKekBase64 }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "acornops-platform.secretName" . }}
+                  key: {{ .Values.secrets.keys.llmGateway.vaultToken }}
+                  optional: true
+            {{- with .Values.components.llmGateway.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ ternary "health" "http" .Values.internalTransport.tls.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: {{ ternary "health" "http" .Values.internalTransport.tls.enabled }}
+          resources:
+            {{- toYaml .Values.components.llmGateway.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.internalTransport.tls.enabled }}
+        - name: internal-transport-ca
+          secret:
+            secretName: {{ required "internalTransport.tls.ca.secretName is required when internal TLS is enabled" .Values.internalTransport.tls.ca.secretName | quote }}
+            items:
+              - key: {{ .Values.internalTransport.tls.ca.key | quote }}
+                path: {{ .Values.internalTransport.tls.ca.key | quote }}
+        - name: internal-transport-llm-gateway
+          secret:
+            secretName: {{ required "internalTransport.tls.certificates.llmGateway.secretName is required when internal TLS is enabled" .Values.internalTransport.tls.certificates.llmGateway.secretName | quote }}
+            items:
+              - key: {{ .Values.internalTransport.tls.certificates.llmGateway.certKey | quote }}
+                path: {{ .Values.internalTransport.tls.certificates.llmGateway.certKey | quote }}
+              - key: {{ .Values.internalTransport.tls.certificates.llmGateway.keyKey | quote }}
+                path: {{ .Values.internalTransport.tls.certificates.llmGateway.keyKey | quote }}
+        {{- end }}
+      {{- include "acornops-platform.workloadScheduling" (dict "values" .Values.components.llmGateway) | nindent 6 }}
+{{- end }}

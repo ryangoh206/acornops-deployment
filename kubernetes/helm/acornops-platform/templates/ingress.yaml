@@ -1,0 +1,68 @@
+{{- if .Values.exposure.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "acornops-platform.fullname" . }}
+  labels:
+    {{- include "acornops-platform.labels" . | nindent 4 }}
+  {{- with .Values.exposure.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.exposure.ingress.className }}
+  ingressClassName: {{ .Values.exposure.ingress.className | quote }}
+  {{- end }}
+  {{- if .Values.exposure.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.exposure.ingress.apiHost | quote }}
+        {{- if .Values.components.managementConsole.enabled }}
+        - {{ .Values.exposure.ingress.consoleHost | quote }}
+        {{- end }}
+      secretName: {{ .Values.exposure.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    {{- if .Values.components.managementConsole.enabled }}
+    - host: {{ .Values.exposure.ingress.consoleHost | quote }}
+      http:
+        paths:
+          {{- if .Values.components.controlPlane.enabled }}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}
+                port:
+                  name: http
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "management-console") }}
+                port:
+                  name: http
+    {{- end }}
+    - host: {{ .Values.exposure.ingress.apiHost | quote }}
+      http:
+        paths:
+          {{- if .Values.components.controlPlane.enabled }}
+          {{- if and .Values.adminApi.enabled .Values.adminApi.ingress.enabled }}
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}
+                port:
+                  name: http
+          {{- end }}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}
+                port:
+                  name: http
+          {{- end }}
+{{- end }}

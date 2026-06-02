@@ -1,0 +1,55 @@
+groups:
+  - name: llm-gateway
+    rules:
+      - alert: LlmGatewayNotReady
+        expr: min by (instance) (gateway_readiness_check{required="true"}) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM gateway is not ready"
+          description: "A required gateway readiness dependency is failing."
+
+      - alert: LlmGatewayJwksStale
+        expr: gateway_jwks_refresh_age_seconds > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM gateway JWKS cache is stale"
+          description: "The gateway has not successfully refreshed JWKS within the staleness budget."
+
+      - alert: LlmGatewaySecretBackendFailing
+        expr: gateway_readiness_check{dependency="secret_backend",required="true"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM gateway secret backend is failing"
+          description: "Provider or MCP secrets may be unavailable."
+
+      - alert: LlmGatewayProviderErrorsElevated
+        expr: |
+          sum(rate(gateway_llm_provider_requests_total{status="error"}[5m]))
+          /
+          clamp_min(sum(rate(gateway_llm_provider_requests_total[5m])), 1)
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM gateway provider error rate is elevated"
+          description: "More than 10% of provider streams are ending in gateway-normalized errors."
+
+      - alert: LlmGatewayToolErrorsElevated
+        expr: |
+          sum(rate(gateway_tool_calls_total{is_error="True"}[5m]))
+          /
+          clamp_min(sum(rate(gateway_tool_calls_total[5m])), 1)
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM gateway tool-call error rate is elevated"
+          description: "More than 10% of MCP tool calls are returning error results."

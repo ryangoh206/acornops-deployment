@@ -1,0 +1,23 @@
+AcornOps platform chart rendered for {{ .Release.Namespace }}.
+
+Public routes:
+{{- if .Values.exposure.ingress.enabled }}
+  Management console: {{ include "acornops-platform.managementConsoleUrl" . }}
+  Control-plane API:  {{ include "acornops-platform.publicUrl" . }}/api
+{{- else }}
+  Ingress is disabled. Expose the management-console and control-plane Services through your own edge.
+{{- end }}
+
+Required external dependencies:
+  - Existing Secret: {{ include "acornops-platform.secretName" . }}
+  - External Postgres for control-plane and llm-gateway
+  - External Redis for control-plane, execution-engine durability, and llm-gateway rate limits
+
+HA defaults:
+  - management-console: {{ .Values.components.managementConsole.replicas }} replicas
+  - execution-engine: {{ .Values.components.executionEngine.replicas }} replicas
+  - llm-gateway: {{ .Values.components.llmGateway.replicas }} replicas
+  - control-plane: {{ .Values.components.controlPlane.replicas }} replicas
+
+Control-plane HA uses external Redis for agent ownership, cross-pod command
+routing, run event fanout, and renewed scheduler leases.

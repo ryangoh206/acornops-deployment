@@ -1,0 +1,191 @@
+version: '3'
+
+vars:
+  ENV_LOCAL: '{{default "env/local/.env.local" .ENV_LOCAL}}'
+  ENV_LOCAL_AGENT: '{{default "env/local/.env.agent" .ENV_LOCAL_AGENT}}'
+  ENV_PROD: '{{default "env/vm/.env.prod" .ENV_PROD}}'
+  ENV_AGENT: '{{default "env/vm/.env.agent" .ENV_AGENT}}'
+  LOCAL_OIDC_PROFILE: '{{default "oidc-dex" .LOCAL_OIDC_PROFILE}}'
+  LOCAL_EXTRA_PROFILES: '{{default "" .LOCAL_EXTRA_PROFILES}}'
+
+silent: true
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install local dev prerequisites and bootstrap the local env file
+    cmds:
+      - ./scripts/install.sh
+
+  doctor:
+    desc: Validate local dev prerequisites and setup
+    cmds:
+      - ./scripts/doctor.sh
+
+  local-up:
+    desc: Start full local stack
+    env:
+      LOCAL_OIDC_PROFILE: '{{.LOCAL_OIDC_PROFILE}}'
+      LOCAL_EXTRA_PROFILES: '{{.LOCAL_EXTRA_PROFILES}}'
+    cmds:
+      - ./scripts/local-up.sh {{.ENV_LOCAL}} {{.ENV_LOCAL_AGENT}}
+
+  local-down:
+    desc: Stop local stack (preserve data)
+    env:
+      LOCAL_OIDC_PROFILE: '{{.LOCAL_OIDC_PROFILE}}'
+      LOCAL_EXTRA_PROFILES: '{{.LOCAL_EXTRA_PROFILES}}'
+    cmds:
+      - ./scripts/local-down.sh {{.ENV_LOCAL}} {{.ENV_LOCAL_AGENT}}
+
+  local-reset:
+    desc: Reset local stack and wipe data/volumes
+    env:
+      LOCAL_EXTRA_PROFILES: '{{.LOCAL_EXTRA_PROFILES}}'
+    cmds:
+      - ./scripts/local-reset.sh {{.ENV_LOCAL}} {{.ENV_LOCAL_AGENT}}
+
+  local-logs:
+    desc: Tail local stack logs
+    env:
+      ENV_LOCAL: '{{.ENV_LOCAL}}'
+      ENV_LOCAL_AGENT: '{{.ENV_LOCAL_AGENT}}'
+      LOCAL_OIDC_PROFILE: '{{.LOCAL_OIDC_PROFILE}}'
+      LOCAL_EXTRA_PROFILES: '{{.LOCAL_EXTRA_PROFILES}}'
+    cmds:
+      - |
+        if [ -f "$ENV_LOCAL_AGENT" ]; then
+          set -a
+          . "$ENV_LOCAL_AGENT"
+          set +a
+        fi
+        EXTRA_ARGS=""
+        if [ -n "$LOCAL_EXTRA_PROFILES" ]; then
+          for p in $(echo "$LOCAL_EXTRA_PROFILES" | tr ',' ' '); do
+            EXTRA_ARGS="$EXTRA_ARGS --profile $p"
+          done
+        fi
+        docker compose -f compose/vm-prod/compose.yaml -f compose/local/compose.source.yaml \
+          --profile local --profile "$LOCAL_OIDC_PROFILE" $EXTRA_ARGS --env-file "$ENV_LOCAL" logs -f
+
+  local-ps:
+    desc: Show local stack container status
+    env:
+      ENV_LOCAL: '{{.ENV_LOCAL}}'
+      ENV_LOCAL_AGENT: '{{.ENV_LOCAL_AGENT}}'
+      LOCAL_OIDC_PROFILE: '{{.LOCAL_OIDC_PROFILE}}'
+      LOCAL_EXTRA_PROFILES: '{{.LOCAL_EXTRA_PROFILES}}'
+    cmds:
+      - |
+        if [ -f "$ENV_LOCAL_AGENT" ]; then
+          set -a
+          . "$ENV_LOCAL_AGENT"
+          set +a
+        fi
+        EXTRA_ARGS=""
+        if [ -n "$LOCAL_EXTRA_PROFILES" ]; then
+          for p in $(echo "$LOCAL_EXTRA_PROFILES" | tr ',' ' '); do
+            EXTRA_ARGS="$EXTRA_ARGS --profile $p"
+          done
+        fi
+        docker compose -f compose/vm-prod/compose.yaml -f compose/local/compose.source.yaml \
+          --profile local --profile "$LOCAL_OIDC_PROFILE" $EXTRA_ARGS --env-file "$ENV_LOCAL" ps
+
+  local-smoke:
+    desc: Run local full-stack smoke checks against the edge proxy
+    cmds:
+      - node scripts/local-smoke.mjs
+
+  prod-up:
+    desc: Deploy production stack
+    cmds:
+      - ./scripts/prod-up.sh {{.ENV_PROD}}
+
+  prod-down:
+    desc: Stop production stack
+    cmds:
+      - ./scripts/prod-down.sh {{.ENV_PROD}}
+
+  prod-logs:
+    desc: Tail production stack logs
+    cmds:
+      - docker compose -f compose/vm-prod/compose.yaml --profile prod --env-file {{.ENV_PROD}} logs -f
+
+  prod-ps:
+    desc: Show production stack container status
+    cmds:
+      - docker compose -f compose/vm-prod/compose.yaml --profile prod --env-file {{.ENV_PROD}} ps
+
+  agent-deploy:
+    desc: Deploy k8s-agent to a target cluster
+    cmds:
+      - ./scripts/agent-deploy.sh {{.ENV_AGENT}}
+
+  agent-remove:
+    desc: Remove k8s-agent from a target cluster
+    cmds:
+      - ./scripts/agent-remove.sh {{.ENV_AGENT}}
+
+  contracts:check:
+    desc: Validate deployment and cross-repo contract manifests
+    cmds:
+      - node scripts/check-contracts.mjs
+
+  harness:check:
+    desc: Validate repository harness documentation and agent entrypoints
+    cmds:
+      - node scripts/check-harness.mjs
+
+  contracts-check:
+    desc: Compatibility alias for contracts:check
+    cmds:
+      - task contracts:check
+
+  harness-check:
+    desc: Compatibility alias for harness:check
+    cmds:
+      - task harness:check
+
+  python-standards-check:
+    desc: Validate shared Python service supply-chain and lint standards
+    cmds:
+      - node scripts/check-python-service-standards.mjs
+
+  k8s-chart-check:
+    desc: Validate Kubernetes platform Helm chart rendering and policy checks
+    cmds:
+      - node scripts/check-kubernetes-platform-chart.mjs
+
+  k8s-ha-smoke:
+    desc: Run opt-in Kubernetes HA smoke against a non-production context
+    cmds:
+      - node scripts/k8s-ha-smoke.mjs
+
+  release-matrix-check:
+    desc: Validate release version metadata against Compose and Helm defaults
+    cmds:
+      - node scripts/check-release-matrix.mjs
+
+  platform-contracts:
+    desc: Validate cross-repo contract manifests in a sibling checkout
+    cmds:
+      - node scripts/check-contracts.mjs
+
+  validate:
+    desc: Validate compose files render with example env files
+    cmds:
+      - task contracts:check
+      - task harness:check
+      - node scripts/check-install-linux.mjs
+      - task python-standards-check
+      - task k8s-chart-check
+      - task release-matrix-check
+      - ./scripts/validate-prod-edge.sh
+      - ./scripts/validate-prod-images.sh
+      - docker compose -f compose/vm-prod/compose.yaml --profile prod --env-file env/vm/.env.example config >/dev/null
+      - docker compose -f compose/vm-prod/compose.yaml -f compose/local/compose.source.yaml --profile local --profile oidc-dex --env-file env/local/.env.example config >/dev/null
+      - docker compose -f compose/vm-prod/compose.yaml -f compose/local/compose.source.yaml --profile local --profile oidc-keycloak --env-file env/local/.env.example config >/dev/null

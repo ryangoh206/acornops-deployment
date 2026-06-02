@@ -1,0 +1,139 @@
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  '' close;
+}
+
+server {
+  listen 80;
+  server_name ${MANAGEMENT_CONSOLE_HOST};
+
+  location ~ ^/api/v1/runs/[^/]+/stream$ {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_buffering off;
+    proxy_cache off;
+    add_header X-Accel-Buffering no always;
+    proxy_pass http://control-plane:8081;
+  }
+
+  location /api/ {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass http://control-plane:8081;
+  }
+
+  location / {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass http://${MANAGEMENT_CONSOLE_UPSTREAM}/;
+  }
+}
+
+server {
+  listen 80;
+  server_name ${API_HOST};
+
+  location ~ ^/api/v1/runs/[^/]+/stream$ {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_buffering off;
+    proxy_cache off;
+    add_header X-Accel-Buffering no always;
+    proxy_pass http://control-plane:8081;
+  }
+
+  location /api/ {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass http://control-plane:8081;
+  }
+
+  location = / {
+    default_type text/plain;
+    return 404 "API host serves /api routes only.\n";
+  }
+
+  location / {
+    default_type text/plain;
+    return 404 "Not found.\n";
+  }
+}
+
+server {
+  listen 80;
+  server_name ${CONTROL_PLANE_HOST};
+
+  location / {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_pass http://control-plane:8081;
+  }
+}
+
+server {
+  listen 80;
+  server_name ${LLM_GATEWAY_HOST};
+
+  location / {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://llm-gateway:8001;
+  }
+}
+
+server {
+  listen 80;
+  server_name ${EXECUTION_ENGINE_HOST};
+
+  location / {
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://execution-engine:8080;
+  }
+}
+
+server {
+  listen 80 default_server;
+  server_name _;
+
+  location / {
+    default_type text/plain;
+    return 404 "Unknown host.\n";
+  }
+}

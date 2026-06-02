@@ -1,0 +1,73 @@
+groups:
+  - name: execution-engine
+    rules:
+      - alert: ExecutionEngineNotReady
+        expr: min by (instance) (execution_engine_readiness_dependency_status) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Execution engine is not ready"
+          description: "At least one execution-engine readiness dependency is failing."
+
+      - alert: ExecutionEngineRedisUnavailable
+        expr: execution_engine_readiness_dependency_status{dependency="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Execution engine Redis dependency is unavailable"
+          description: "Run-id coordination, event outbox retry, and terminal commit retry may be unavailable."
+
+      - alert: ExecutionEngineTerminalCommitBacklog
+        expr: execution_engine_terminal_commits_pending > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Execution engine terminal commits are pending"
+          description: "Final run state delivery to control-plane is delayed."
+
+      - alert: ExecutionEngineEventOutboxBacklog
+        expr: execution_engine_event_outbox_pending > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Execution engine event outbox backlog is pending"
+          description: "Run lifecycle or token events are waiting for control-plane acknowledgement."
+
+      - alert: ExecutionEngineGatewayStreamErrorsElevated
+        expr: |
+          sum(rate(execution_engine_gateway_streams_total{result!="success"}[5m]))
+          /
+          clamp_min(sum(rate(execution_engine_gateway_streams_total[5m])), 1)
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Execution engine gateway stream error rate is elevated"
+          description: "More than 10% of llm-gateway streams are ending in execution-engine errors."
+
+      - alert: ExecutionEngineToolCallErrorsElevated
+        expr: |
+          sum(rate(execution_engine_tool_calls_total{result!="success"}[5m]))
+          /
+          clamp_min(sum(rate(execution_engine_tool_calls_total[5m])), 1)
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Execution engine tool-call error rate is elevated"
+          description: "More than 10% of execution-engine tool calls are returning errors or timing out."
+
+      - alert: ExecutionEngineRunFailuresElevated
+        expr: rate(runs_failed_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Execution engine run failures are elevated"
+          description: "The execution engine is failing runs above the baseline threshold."

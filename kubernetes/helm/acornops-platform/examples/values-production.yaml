@@ -1,0 +1,192 @@
+# Production operator template for the central AcornOps platform.
+# The chart expects external Postgres, Redis, and a pre-created Secret.
+
+platform:
+  # Public API base URL used by agents and backend-to-frontend links.
+  publicUrl: https://api.acornops.dev
+  # Public browser URL for the management console.
+  consoleUrl: https://console.acornops.dev
+
+exposure:
+  ingress:
+    enabled: true
+    className: nginx
+    apiHost: api.acornops.dev
+    consoleHost: console.acornops.dev
+    tls:
+      enabled: true
+      secretName: acornops-platform-tls
+    # Add cert-manager, external-dns, or ingress-controller annotations here.
+    annotations: {}
+
+secrets:
+  # Create this Secret before installing the chart.
+  existingSecretName: acornops-platform-secrets
+  keys:
+    controlPlane:
+      databaseUrl: CONTROL_PLANE_DATABASE_URL
+      redisUrl: CONTROL_PLANE_REDIS_URL
+      oidcClientSecret: OIDC_CLIENT_SECRET
+      csrfSecret: CSRF_SECRET
+      gatewaySigningPrivateKeyPemB64: GATEWAY_SIGNING_PRIVATE_KEY_PEM_B64
+      orchestrationServiceToken: ORCH_SERVICE_TOKEN
+      webhookSecretEncryptionKey: WEBHOOK_SECRET_ENCRYPTION_KEY
+      smtpUsername: SMTP_USERNAME
+      smtpPassword: SMTP_PASSWORD
+    executionEngine:
+      redisUrl: EXECUTION_ENGINE_REDIS_URL
+      dispatchToken: EXECUTION_ENGINE_DISPATCH_TOKEN
+    llmGateway:
+      databaseUrl: LLM_GATEWAY_DATABASE_URL
+      redisUrl: LLM_GATEWAY_REDIS_URL
+      adminToken: LLM_GATEWAY_ADMIN_TOKEN
+      secretsKekBase64: SECRETS_KEK_BASE64
+      vaultToken: VAULT_TOKEN
+
+auth:
+  oidc:
+    providerName: oidc
+    issuerUrl: https://keycloak.acornops.dev/realms/acornops
+    publicIssuerUrl: ""
+    clientId: acornops-control-plane
+    httpTimeoutMs: 10000
+    requireVerifiedEmail: true
+  password:
+    # Disable this if production should be OIDC-only.
+    enabled: true
+    # Keep false unless this is a reviewed private deployment.
+    signupEnabled: false
+    emailVerificationRequired: true
+    resetEnabled: true
+
+email:
+  deliveryMode: smtp
+  from: "AcornOps <noreply@example.com>"
+  # Defaults to platform.consoleUrl when empty.
+  publicBaseUrl: ""
+  smtp:
+    host: smtp.example.com
+    port: 587
+    secure: false
+    requireTls: true
+
+adminApi:
+  # Keep disabled unless this environment has an operator-held admin token.
+  enabled: false
+  ingress:
+    enabled: false
+  tokens:
+    # Store CONTROL_PLANE_ADMIN_TOKENS_JSON in this Secret as hash descriptors.
+    existingSecretName: acornops-platform-secrets
+    tokensJsonKey: CONTROL_PLANE_ADMIN_TOKENS_JSON
+
+workspacePlans:
+  defaultPlanKey: default
+  plans:
+    - key: default
+      name: Default
+      quotas:
+        members: 100
+        kubernetesClusters: 30
+        virtualMachines: 30
+
+ai:
+  # Global defaults used when workspaces do not override model policy.
+  defaultProvider: gemini
+  defaultModel: gemini-2.0-flash
+  allowedProviders: openai,anthropic,gemini
+  allowedModels: gpt-4.1-mini,claude-3-5-sonnet-latest,gemini-2.0-flash
+  gatewayTimeoutMs: 120000
+
+agent:
+  routing:
+    distributedEnabled: true
+    ownerTtlSeconds: 90
+    snapshotIntervalSeconds: 60
+  runtime:
+    contextMaxTokens: 120000
+    budgetCents: 25
+    maxRuntimeMs: 600000
+    writeConfirmationRequired: true
+    writeConfirmationTimeoutSeconds: 300
+  helm:
+    releaseName: acornops-agent
+    chartRef: oci://ghcr.io/acornops/charts/acornops-k8s-agent
+    namespace: acornops
+
+internalTransport:
+  tls:
+    # Disabled by default. Enable only after creating the CA and per-service TLS Secrets.
+    enabled: false
+    ca:
+      secretName: ""
+    certificates:
+      controlPlane:
+        secretName: ""
+      executionEngine:
+        secretName: ""
+      llmGateway:
+        secretName: ""
+
+networkPolicies:
+  enabled: true
+  ingressController:
+    # Change this if your ingress controller is not in ingress-nginx.
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx
+  # Replace the public CIDR defaults below when Postgres or Redis are private.
+  # Example:
+  # postgres:
+  #   to:
+  #     - ipBlock:
+  #         cidr: 10.20.30.40/32
+  # redis:
+  #   to:
+  #     - ipBlock:
+  #         cidr: 10.20.30.41/32
+  # Use extraEgress for private OIDC, webhook, Vault, or MCP destinations.
+  extraEgress:
+    controlPlane: []
+    executionEngine: []
+    llmGateway: []
+    controlPlaneMigrate: []
+    llmGatewayMigrate: []
+
+components:
+  managementConsole:
+    replicas: 3
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+  controlPlane:
+    replicas: 3
+    apiDocsEnabled: false
+    terminationGracePeriodSeconds: 45
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+  executionEngine:
+    replicas: 3
+    apiDocsEnabled: false
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+  llmGateway:
+    replicas: 3
+    apiDocsEnabled: false
+    # Keep plaintext secret caching disabled in production.
+    secretsCacheTtlSeconds: 0
+    # Set secretsBackend: vault and configure vault fields if using Vault.
+    secretsBackend: database
+    vault:
+      addr: ""
+      namespace: ""
+      mount: secret
+      pathPrefix: acornops
+      timeoutMs: 5000
+      verifyTls: true
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2

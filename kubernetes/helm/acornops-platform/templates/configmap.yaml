@@ -1,0 +1,184 @@
+{{- if .Values.components.controlPlane.enabled }}
+{{- if gt (int .Values.auth.session.idleTimeoutSeconds) (int .Values.auth.session.maxAgeSeconds) }}
+{{- fail "auth.session.idleTimeoutSeconds must be less than or equal to auth.session.maxAgeSeconds" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "control-plane") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "control-plane") | nindent 4 }}
+data:
+  NODE_ENV: "production"
+  PORT: {{ .Values.components.controlPlane.service.targetPort | quote }}
+  LOG_LEVEL: {{ .Values.components.controlPlane.logLevel | quote }}
+  ENABLE_API_DOCS: {{ .Values.components.controlPlane.apiDocsEnabled | quote }}
+  TRUST_PROXY: {{ .Values.components.controlPlane.trustProxy | quote }}
+  CONTROL_PLANE_BASE_URL: {{ include "acornops-platform.publicUrl" . | quote }}
+  CONTROL_PLANE_DISTRIBUTED_ROUTING_ENABLED: {{ .Values.agent.routing.distributedEnabled | quote }}
+  CONTROL_PLANE_AGENT_OWNER_TTL_SECONDS: {{ .Values.agent.routing.ownerTtlSeconds | quote }}
+  CONTROL_PLANE_AGENT_SNAPSHOT_INTERVAL_SECONDS: {{ .Values.agent.routing.snapshotIntervalSeconds | quote }}
+  CORS_ORIGIN: {{ default (include "acornops-platform.managementConsoleUrl" .) .Values.components.controlPlane.corsOrigin | quote }}
+  SESSION_COOKIE_NAME: {{ .Values.auth.session.cookieName | quote }}
+  SESSION_MAX_AGE_SECONDS: {{ .Values.auth.session.maxAgeSeconds | quote }}
+  SESSION_IDLE_TIMEOUT_SECONDS: {{ .Values.auth.session.idleTimeoutSeconds | quote }}
+  CONVERSATION_RETENTION_DAYS: {{ .Values.components.controlPlane.conversationRetention.days | quote }}
+  CONVERSATION_RETENTION_JOB_INTERVAL_SECONDS: {{ .Values.components.controlPlane.conversationRetention.jobIntervalSeconds | quote }}
+  WORKSPACE_AUDIT_LOGGING_MODE: {{ .Values.auditLogging.mode | quote }}
+  WORKSPACE_AUDIT_RETENTION_DAYS: {{ .Values.auditLogging.retentionDays | quote }}
+  TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS: {{ .Values.components.controlPlane.recentActivity.windowSeconds | quote }}
+  RUN_EVENT_BUFFER_SIZE: {{ .Values.components.controlPlane.runEvents.bufferSize | quote }}
+  PERSIST_RUN_EVENTS: {{ .Values.components.controlPlane.runEvents.persist | quote }}
+  SEED_DEVELOPMENT_DATA: "false"
+  AGENT_HELM_RELEASE_NAME: {{ .Values.agent.helm.releaseName | quote }}
+  AGENT_HELM_CHART_REF: {{ .Values.agent.helm.chartRef | quote }}
+  AGENT_HELM_NAMESPACE: {{ .Values.agent.helm.namespace | quote }}
+  OIDC_PROVIDER_NAME: {{ .Values.auth.oidc.providerName | quote }}
+  OIDC_ISSUER_URL: {{ .Values.auth.oidc.issuerUrl | quote }}
+  OIDC_PUBLIC_ISSUER_URL: {{ .Values.auth.oidc.publicIssuerUrl | quote }}
+  OIDC_CLIENT_ID: {{ .Values.auth.oidc.clientId | quote }}
+  OIDC_TOKEN_ENDPOINT_AUTH_METHOD: {{ .Values.auth.oidc.tokenEndpointAuthMethod | quote }}
+  OIDC_AUTHORIZATION_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.authorizationEndpointOverride | quote }}
+  OIDC_TOKEN_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.tokenEndpointOverride | quote }}
+  OIDC_USERINFO_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.userinfoEndpointOverride | quote }}
+  OIDC_JWKS_URI_OVERRIDE: {{ .Values.auth.oidc.jwksUriOverride | quote }}
+  OIDC_REDIRECT_URI: {{ default (printf "%s/api/v1/auth/oidc/callback" (include "acornops-platform.managementConsoleUrl" .)) .Values.auth.oidc.redirectUri | quote }}
+  OIDC_SCOPES: {{ .Values.auth.oidc.scopes | quote }}
+  OIDC_USE_USERINFO: {{ .Values.auth.oidc.useUserinfo | quote }}
+  OIDC_REQUIRE_VERIFIED_EMAIL: {{ .Values.auth.oidc.requireVerifiedEmail | quote }}
+  OIDC_HTTP_TIMEOUT_MS: {{ .Values.auth.oidc.httpTimeoutMs | quote }}
+  PASSWORD_AUTH_ENABLED: {{ .Values.auth.password.enabled | quote }}
+  PASSWORD_SIGNUP_ENABLED: {{ .Values.auth.password.signupEnabled | quote }}
+  PASSWORD_EMAIL_VERIFICATION_REQUIRED: {{ .Values.auth.password.emailVerificationRequired | quote }}
+  PASSWORD_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: {{ .Values.auth.password.verificationTokenTtlSeconds | quote }}
+  PASSWORD_EMAIL_VERIFICATION_RESEND_WINDOW_SECONDS: {{ .Values.auth.password.verificationResendWindowSeconds | quote }}
+  PASSWORD_SIGNUP_ALLOW_UNVERIFIED_EMAIL: {{ .Values.auth.password.signupAllowUnverifiedEmail | quote }}
+  PASSWORD_RESET_ENABLED: {{ .Values.auth.password.resetEnabled | quote }}
+  PASSWORD_RESET_TOKEN_TTL_SECONDS: {{ .Values.auth.password.resetTokenTtlSeconds | quote }}
+  PASSWORD_RESET_REQUEST_WINDOW_SECONDS: {{ .Values.auth.password.resetRequestWindowSeconds | quote }}
+  PASSWORD_AUTH_IDENTIFIER_MAX_ATTEMPTS: {{ .Values.auth.password.identifierMaxAttempts | quote }}
+  EMAIL_DELIVERY_MODE: {{ .Values.email.deliveryMode | quote }}
+  EMAIL_DELIVERY_ALLOW_LOG_IN_PRODUCTION: {{ .Values.email.allowLogInProduction | quote }}
+  EMAIL_FROM: {{ .Values.email.from | quote }}
+  EMAIL_PUBLIC_BASE_URL: {{ default (include "acornops-platform.managementConsoleUrl" .) .Values.email.publicBaseUrl | quote }}
+  SMTP_HOST: {{ .Values.email.smtp.host | quote }}
+  SMTP_PORT: {{ .Values.email.smtp.port | quote }}
+  SMTP_SECURE: {{ .Values.email.smtp.secure | quote }}
+  SMTP_REQUIRE_TLS: {{ .Values.email.smtp.requireTls | quote }}
+  EXECUTION_ENGINE_BASE_URL: {{ include "acornops-platform.internalUrl" (dict "root" . "component" "execution-engine" "port" .Values.components.executionEngine.service.port) | quote }}
+  EXECUTION_ENGINE_TIMEOUT_MS: "10000"
+  LLM_GATEWAY_URL: {{ include "acornops-platform.internalUrl" (dict "root" . "component" "llm-gateway" "port" .Values.components.llmGateway.service.port) | quote }}
+  LLM_GATEWAY_TIMEOUT_MS: {{ .Values.ai.gatewayTimeoutMs | quote }}
+  LLM_DEFAULT_PROVIDER: {{ .Values.ai.defaultProvider | quote }}
+  LLM_DEFAULT_MODEL: {{ .Values.ai.defaultModel | quote }}
+  LLM_ALLOWED_PROVIDERS: {{ .Values.ai.allowedProviders | quote }}
+  LLM_ALLOWED_MODELS: {{ .Values.ai.allowedModels | quote }}
+  WORKSPACE_ROLES_CONFIG_JSON: {{ toJson (default dict .Values.workspaceRoles) | quote }}
+  WORKSPACE_PLANS_CONFIG_JSON: {{ toJson .Values.workspacePlans | quote }}
+  CONTROL_PLANE_ADMIN_API_ENABLED: {{ .Values.adminApi.enabled | quote }}
+  AGENT_CONTEXT_MAX_TOKENS: {{ .Values.agent.runtime.contextMaxTokens | quote }}
+  AGENT_BUDGET_CENTS: {{ .Values.agent.runtime.budgetCents | quote }}
+  AGENT_LLM_TEMPERATURE: {{ .Values.agent.runtime.temperature | quote }}
+  AGENT_MAX_RUNTIME_MS: {{ .Values.agent.runtime.maxRuntimeMs | quote }}
+  AGENT_MAX_STEPS: {{ .Values.agent.runtime.maxSteps | quote }}
+  AGENT_MAX_TOOL_CALLS: {{ .Values.agent.runtime.maxToolCalls | quote }}
+  AGENT_MAX_DUPLICATE_TOOL_CALLS: {{ .Values.agent.runtime.maxDuplicateToolCalls | quote }}
+  AGENT_TOOL_DEFAULT_TIMEOUT_MS: {{ .Values.agent.runtime.toolDefaultTimeoutMs | quote }}
+  AGENT_WRITE_CONFIRMATION_REQUIRED: {{ .Values.agent.runtime.writeConfirmationRequired | quote }}
+  AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS: {{ .Values.agent.runtime.writeConfirmationTimeoutSeconds | quote }}
+  BUILTIN_MCP_SERVER_NAME: {{ .Values.agent.builtinMcpServer.name | quote }}
+  BUILTIN_MCP_SERVER_URL: {{ default (printf "%s/internal/v1/mcp" (include "acornops-platform.controlPlaneInternalUrl" .)) .Values.agent.builtinMcpServer.url | quote }}
+  BUILTIN_MCP_SERVER_DISPLAY_NAME: {{ .Values.agent.builtinMcpServer.displayName | quote }}
+  INTERNAL_TRANSPORT_TLS_ENABLED: {{ .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_REQUIRE_CLIENT_CERT: {{ .Values.internalTransport.tls.requireClientCert | quote }}
+  INTERNAL_TRANSPORT_TLS_CA_FILE: {{ ternary (include "acornops-platform.internalTlsCaFile" .) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_CERT_FILE: {{ ternary (include "acornops-platform.internalTlsCertFile" (dict "root" . "component" "control-plane" "certKey" .Values.internalTransport.tls.certificates.controlPlane.certKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_KEY_FILE: {{ ternary (include "acornops-platform.internalTlsKeyFile" (dict "root" . "component" "control-plane" "keyKey" .Values.internalTransport.tls.certificates.controlPlane.keyKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  CONTROL_PLANE_INTERNAL_TRANSPORT_PORT: {{ .Values.internalTransport.tls.controlPlane.internalPort | quote }}
+  GATEWAY_TOKEN_ISSUER: {{ .Values.internalAuth.gatewayToken.issuer | quote }}
+  GATEWAY_TOKEN_AUDIENCE: {{ .Values.internalAuth.gatewayToken.audience | quote }}
+  GATEWAY_TOKEN_TTL_SECONDS: {{ .Values.internalAuth.gatewayToken.ttlSeconds | quote }}
+  GATEWAY_SIGNING_KID: {{ .Values.internalAuth.gatewayToken.signingKid | quote }}
+  GATEWAY_VERIFICATION_JWKS_JSON: {{ .Values.internalAuth.gatewayToken.verificationJwksJson | quote }}
+{{- end }}
+{{- if .Values.components.executionEngine.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "execution-engine") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "execution-engine") | nindent 4 }}
+data:
+  APP_ENV: "production"
+  HTTP_PORT: {{ .Values.components.executionEngine.service.targetPort | quote }}
+  LOG_LEVEL: {{ .Values.components.executionEngine.logLevel | quote }}
+  ENABLE_API_DOCS: {{ .Values.components.executionEngine.apiDocsEnabled | quote }}
+  ORCH_BASE_URL: {{ include "acornops-platform.controlPlaneInternalUrl" . | quote }}
+  EXECUTION_GATEWAY_BASE_URL: {{ include "acornops-platform.internalUrl" (dict "root" . "component" "llm-gateway" "port" .Values.components.llmGateway.service.port) | quote }}
+  INTERNAL_TRANSPORT_TLS_ENABLED: {{ .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_REQUIRE_CLIENT_CERT: {{ .Values.internalTransport.tls.requireClientCert | quote }}
+  INTERNAL_TRANSPORT_TLS_CA_FILE: {{ ternary (include "acornops-platform.internalTlsCaFile" .) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_CERT_FILE: {{ ternary (include "acornops-platform.internalTlsCertFile" (dict "root" . "component" "execution-engine" "certKey" .Values.internalTransport.tls.certificates.executionEngine.certKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_KEY_FILE: {{ ternary (include "acornops-platform.internalTlsKeyFile" (dict "root" . "component" "execution-engine" "keyKey" .Values.internalTransport.tls.certificates.executionEngine.keyKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_HEALTH_PORT: {{ ternary (toString .Values.internalTransport.tls.health.executionEnginePort) "" .Values.internalTransport.tls.enabled | quote }}
+  MAX_CONCURRENT_RUNS: {{ .Values.components.executionEngine.maxConcurrentRuns | quote }}
+  EXECUTION_DURABILITY_KEY_PREFIX: {{ .Values.components.executionEngine.durability.keyPrefix | quote }}
+  TERMINAL_RUN_TTL_SECONDS: {{ .Values.components.executionEngine.durability.terminalRunTtlSeconds | quote }}
+  TERMINAL_COMMIT_RETENTION_SECONDS: {{ .Values.components.executionEngine.durability.terminalCommitRetentionSeconds | quote }}
+  TERMINAL_COMMIT_RETRY_INTERVAL_SECONDS: {{ .Values.components.executionEngine.durability.terminalCommitRetryIntervalSeconds | quote }}
+  STALE_ACTIVE_RUN_RECOVERY_ON_STARTUP: {{ .Values.components.executionEngine.durability.staleActiveRunRecoveryOnStartup | quote }}
+  RUN_ID_LOCK_TTL_SECONDS: {{ .Values.components.executionEngine.durability.runIdLockTtlSeconds | quote }}
+  READINESS_CHECK_TIMEOUT_MS: {{ .Values.components.executionEngine.timeouts.readinessCheckMs | quote }}
+  ORCH_RETRY_MAX_ELAPSED_SECONDS: {{ .Values.components.executionEngine.timeouts.orchestratorRetryMaxElapsedSeconds | quote }}
+  GATEWAY_STREAM_IDLE_TIMEOUT_SECONDS: {{ .Values.components.executionEngine.timeouts.gatewayStreamIdleSeconds | quote }}
+  TOOL_CALL_TIMEOUT_SECONDS: {{ .Values.components.executionEngine.timeouts.toolCallSeconds | quote }}
+  DISPATCH_REQUEST_TIMEOUT_SECONDS: {{ .Values.components.executionEngine.timeouts.dispatchRequestSeconds | quote }}
+  MAX_REQUEST_BODY_BYTES: {{ .Values.components.executionEngine.maxRequestBodyBytes | int | quote }}
+{{- end }}
+{{- if .Values.components.llmGateway.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "acornops-platform.componentFullname" (dict "root" . "component" "llm-gateway") }}
+  labels:
+    {{- include "acornops-platform.componentLabels" (dict "root" . "component" "llm-gateway") | nindent 4 }}
+data:
+  APP_ENV: "production"
+  GATEWAY_PORT: {{ .Values.components.llmGateway.service.targetPort | quote }}
+  LOG_LEVEL: {{ .Values.components.llmGateway.logLevel | quote }}
+  ENABLE_API_DOCS: {{ .Values.components.llmGateway.apiDocsEnabled | quote }}
+  MAX_REQUEST_BODY_BYTES: {{ .Values.components.llmGateway.maxRequestBodyBytes | int | quote }}
+  SECRETS_BACKEND: {{ .Values.components.llmGateway.secretsBackend | quote }}
+  SECRETS_CACHE_TTL_SEC: {{ .Values.components.llmGateway.secretsCacheTtlSeconds | quote }}
+  AUTH_JWKS_URL: {{ printf "%s/api/v1/auth/jwks.json" (include "acornops-platform.controlPlaneInternalUrl" .) | quote }}
+  BUILTIN_MCP_SERVER_NAME: {{ .Values.agent.builtinMcpServer.name | quote }}
+  BUILTIN_MCP_SERVER_URL: {{ default (printf "%s/internal/v1/mcp" (include "acornops-platform.controlPlaneInternalUrl" .)) .Values.agent.builtinMcpServer.url | quote }}
+  INTERNAL_TRANSPORT_TLS_ENABLED: {{ .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_REQUIRE_CLIENT_CERT: {{ .Values.internalTransport.tls.requireClientCert | quote }}
+  INTERNAL_TRANSPORT_TLS_CA_FILE: {{ ternary (include "acornops-platform.internalTlsCaFile" .) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_CERT_FILE: {{ ternary (include "acornops-platform.internalTlsCertFile" (dict "root" . "component" "llm-gateway" "certKey" .Values.internalTransport.tls.certificates.llmGateway.certKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_TLS_KEY_FILE: {{ ternary (include "acornops-platform.internalTlsKeyFile" (dict "root" . "component" "llm-gateway" "keyKey" .Values.internalTransport.tls.certificates.llmGateway.keyKey)) "" .Values.internalTransport.tls.enabled | quote }}
+  INTERNAL_TRANSPORT_HEALTH_PORT: {{ ternary (toString .Values.internalTransport.tls.health.llmGatewayPort) "" .Values.internalTransport.tls.enabled | quote }}
+  AUTH_ISSUER: {{ .Values.components.llmGateway.auth.issuer | quote }}
+  AUTH_AUDIENCE: {{ .Values.components.llmGateway.auth.audience | quote }}
+  JWKS_CACHE_TTL_SECONDS: {{ .Values.components.llmGateway.auth.jwksCacheTtlSeconds | quote }}
+  JWKS_READINESS_MAX_STALENESS_SECONDS: {{ .Values.components.llmGateway.auth.jwksReadinessMaxStalenessSeconds | quote }}
+  REQUIRE_JWKS_READINESS: {{ .Values.components.llmGateway.auth.requireJwksReadiness | quote }}
+  DATABASE_POOL_MIN: {{ .Values.components.llmGateway.database.poolMin | quote }}
+  DATABASE_POOL_MAX: {{ .Values.components.llmGateway.database.poolMax | quote }}
+  VAULT_ADDR: {{ .Values.components.llmGateway.vault.addr | quote }}
+  VAULT_NAMESPACE: {{ .Values.components.llmGateway.vault.namespace | quote }}
+  VAULT_MOUNT: {{ .Values.components.llmGateway.vault.mount | quote }}
+  VAULT_PATH_PREFIX: {{ .Values.components.llmGateway.vault.pathPrefix | quote }}
+  VAULT_TIMEOUT_MS: {{ .Values.components.llmGateway.vault.timeoutMs | quote }}
+  VAULT_VERIFY_TLS: {{ .Values.components.llmGateway.vault.verifyTls | quote }}
+  MCP_EGRESS_ALLOWED_HOSTS: {{ .Values.components.llmGateway.mcpEgress.allowedHosts | quote }}
+  MCP_EGRESS_ALLOW_PRIVATE_NETWORKS: {{ .Values.components.llmGateway.mcpEgress.allowPrivateNetworks | quote }}
+  MCP_EGRESS_ALLOW_LOCAL_ADDRESSES: {{ .Values.components.llmGateway.mcpEgress.allowLocalAddresses | quote }}
+  RATE_LIMIT_WINDOW_SECONDS: {{ .Values.components.llmGateway.rateLimits.windowSeconds | quote }}
+  LLM_RATE_LIMIT_PER_WINDOW: {{ .Values.components.llmGateway.rateLimits.llmPerWindow | quote }}
+  TOOL_RATE_LIMIT_PER_WINDOW: {{ .Values.components.llmGateway.rateLimits.toolPerWindow | quote }}
+  REQUIRE_REDIS_RATE_LIMITS_IN_PRODUCTION: {{ .Values.components.llmGateway.rateLimits.requireRedisInProduction | quote }}
+{{- end }}
