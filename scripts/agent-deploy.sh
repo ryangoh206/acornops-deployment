@@ -26,7 +26,7 @@ set +a
 
 : "${K8S_NAMESPACE:=acornops}"
 : "${K8S_AGENT_REPLICAS:=1}"
-: "${ACORNOPS_AGENT_IMAGE:=ghcr.io/acornops/k8s-agent:0.0.1-experimental.1}"
+: "${ACORNOPS_AGENT_IMAGE:=ghcr.io/acornops/k8s-agent:0.0.1-experimental.2}"
 : "${ACORNOPS_AGENT_PLATFORM_URL:?ACORNOPS_AGENT_PLATFORM_URL is required}"
 : "${ACORNOPS_CLUSTER_ID:?ACORNOPS_CLUSTER_ID is required}"
 : "${ACORNOPS_AGENT_KEY:?ACORNOPS_AGENT_KEY is required}"
@@ -72,7 +72,7 @@ metadata:
   name: acornops-k8s-agent-role
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "services", "persistentvolumeclaims", "events", "nodes"]
+    resources: ["pods", "pods/log", "services", "persistentvolumeclaims", "events", "nodes", "namespaces"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
