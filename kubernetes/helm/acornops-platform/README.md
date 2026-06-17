@@ -65,9 +65,14 @@ Write confirmation defaults are controlled by:
 - `agent.runtime.writeConfirmationRequired` -> `AGENT_WRITE_CONFIRMATION_REQUIRED`
 - `agent.runtime.writeConfirmationTimeoutSeconds` -> `AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`
 
-The default is confirmation required. Individual clusters can inherit this value or override it from the control plane. Required confirmations are enforced by the execution runtime before write tool execution; browser and bot UIs only submit approve/reject decisions.
+The default is confirmation required. Individual clusters can inherit this value or override it from the control plane. Required confirmations are enforced by the execution runtime before write tool execution; browser and external adapter UIs only submit approve/reject decisions.
 
 Target chat coordination warnings are controlled by `components.controlPlane.recentActivity.windowSeconds`, which renders to `TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS`. The default is `300` seconds.
+
+Mattermost account linking uses `MATTERMOST_CHAT_SERVICE_TOKEN` from the
+existing platform Secret. The key name is configured with
+`secrets.keys.controlPlane.mattermostChatServiceToken`; the default key is
+`MATTERMOST_CHAT_SERVICE_TOKEN`.
 
 Management-console runtime languages can be customized without rebuilding the
 console image by setting `components.managementConsole.locales.existingConfigMap`

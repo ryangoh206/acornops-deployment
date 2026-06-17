@@ -10,6 +10,7 @@ This repository owns deployment and compatibility contracts rather than service 
 - Admin API enablement, token Secret wiring, and API-host-only `/admin` routing
 - Workspace plan and quota config rendered into control-plane runtime env
 - Deployment-track environment templates
+- Mattermost chat account-link token wiring for VM Compose and Helm
 - Helm `internalTransport.tls` values for optional operator-supplied internal HTTPS/mTLS
 - Password email verification/reset and SMTP environment wiring
 - Release image compatibility metadata
@@ -57,6 +58,18 @@ are `read_write`, `write_only`, and `disabled`, with `read_write` as the
 default. The chart renders `auditLogging.retentionDays` to
 `WORKSPACE_AUDIT_RETENTION_DAYS`; it must be a positive integer and defaults to
 `365`.
+
+## Mattermost Chat Account Linking
+
+The deployment contract for Mattermost chat account linking is:
+
+- VM Compose passes `MATTERMOST_CHAT_SERVICE_TOKEN` to the control plane from
+  the env file.
+- Helm loads `MATTERMOST_CHAT_SERVICE_TOKEN` from the existing platform Secret
+  through `secrets.keys.controlPlane.mattermostChatServiceToken`.
+- The token is scoped to the Mattermost chat link and resolve endpoints. It is
+  not a public control-plane API token and must not authorize general user
+  actions.
 
 ## Validation
 

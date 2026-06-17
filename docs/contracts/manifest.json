@@ -26,6 +26,7 @@
       "EMAIL_DELIVERY_ALLOW_LOG_IN_PRODUCTION",
       "EMAIL_FROM",
       "EMAIL_PUBLIC_BASE_URL",
+      "MANAGEMENT_CONSOLE_BASE_URL",
       "SMTP_HOST",
       "SMTP_PORT",
       "SMTP_USERNAME",
@@ -39,6 +40,11 @@
       "CONTROL_PLANE_ADMIN_AUTH_FAILURE_WINDOW_SECONDS",
       "CONTROL_PLANE_ADMIN_AUTH_FAILURE_MAX_ATTEMPTS"
     ],
+    "mattermostChatEnv": [
+      "MATTERMOST_CHAT_SERVICE_TOKEN",
+      "MATTERMOST_CHAT_LINK_TOKEN_TTL_SECONDS",
+      "MATTERMOST_CHAT_LINK_TTL_SECONDS"
+    ],
     "workspacePlanEnv": ["WORKSPACE_PLANS_CONFIG_JSON"],
     "auditLoggingEnv": [
       "WORKSPACE_AUDIT_LOGGING_MODE",
@@ -49,6 +55,9 @@
       "adminApi.ingress.enabled",
       "adminApi.tokens.existingSecretName",
       "adminApi.tokens.tokensJsonKey"
+    ],
+    "mattermostChatHelmValues": [
+      "secrets.keys.controlPlane.mattermostChatServiceToken"
     ],
     "workspacePlanHelmValues": [
       "workspacePlans.defaultPlanKey",
