@@ -42,7 +42,9 @@ expect(
 );
 
 const agentDeploy = readFileSync(path.join(root, 'scripts/agent-deploy.sh'), 'utf8');
+const localUp = readFileSync(path.join(root, 'scripts/local-up.sh'), 'utf8');
 const localCompose = readFileSync(path.join(root, 'compose/local/compose.source.yaml'), 'utf8');
+const taskfile = readFileSync(path.join(root, 'Taskfile.yml'), 'utf8');
 expect(!agentDeploy.includes('ACORNOPS_TARGET_ID'), 'Deployment k8s-agent env should not expose a separate target id');
 expect(agentDeploy.includes('ACORNOPS_CLUSTER_ID'), 'Deployment k8s-agent env should expose ACORNOPS_CLUSTER_ID');
 expect(localCompose.includes('ACORNOPS_CLUSTER_ID'), 'Local k8s-agent env should expose ACORNOPS_CLUSTER_ID');
@@ -69,6 +71,19 @@ expect(
 expect(
   deploymentManifest.contractSurfaces?.localDeterministicLlmEnv?.includes('LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES'),
   'Deployment manifest should expose opt-in deterministic local LLM smoke env'
+);
+for (const envName of [
+  'LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES',
+  'ACORNOPS_DEV_SEED_OPENAI_API_KEY',
+  'ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY',
+  'ACORNOPS_DEV_SEED_GEMINI_API_KEY'
+]) {
+  expect(taskfile.includes(`${envName}: '{{env "${envName}"}}'`), `task local-up should pass through ${envName}`);
+  expect(localUp.includes(`CLI_${envName}=`), `local-up.sh should capture ${envName} before sourcing env files`);
+}
+expect(
+  localUp.includes('up -d --force-recreate --no-deps k8s-agent vm-agent edge-proxy'),
+  'local-up.sh should refresh local agents and edge-proxy after recreating upstream containers'
 );
 
 const repoManifests = {

@@ -250,6 +250,11 @@ await waitFor('public API host JWKS route', async () => {
   if (!Array.isArray(payload.keys)) throw new Error('JWKS response missing keys array');
 });
 
+await waitFor('same-origin auth config', async () => {
+  const { text } = await request('same-origin auth config', config.consoleHost, '/api/v1/auth/config');
+  requireObject(parseJson('same-origin auth config', text), 'same-origin auth config');
+});
+
 const cookie = await waitFor('same-origin dev login', async () => {
   const { response, text } = await request('same-origin dev login', config.consoleHost, '/api/v1/auth/dev-login', {
     method: 'POST',
@@ -259,6 +264,13 @@ const cookie = await waitFor('same-origin dev login', async () => {
   const payload = requireObject(parseJson('same-origin dev login', text), 'same-origin dev login');
   if (!payload.user || typeof payload.user !== 'object') throw new Error('dev-login response missing user');
   return getSessionCookie(response);
+});
+
+await waitFor('same-origin auth methods', async () => {
+  const { text } = await request('same-origin auth methods', config.consoleHost, '/api/v1/auth/methods', {
+    headers: { cookie }
+  });
+  requireObject(parseJson('same-origin auth methods', text), 'same-origin auth methods');
 });
 
 const csrf = await waitFor('same-origin csrf token', async () => {
@@ -292,6 +304,81 @@ const workspace = await waitFor('workspace list', async () => {
   return workspaces.find((item) => item.name === 'Demo Workspace') || workspaces[0];
 });
 
+await waitFor('workspace detail', async () => {
+  const { text } = await request('workspace detail', config.consoleHost, `/api/v1/workspaces/${workspace.id}`, {
+    headers: { cookie }
+  });
+  const payload = requireObject(parseJson('workspace detail', text), 'workspace detail');
+  if (payload.id !== workspace.id) throw new Error('workspace detail id does not match listed workspace');
+});
+
+await waitFor('workspace roles', async () => {
+  const { text } = await request('workspace roles', config.consoleHost, `/api/v1/workspaces/${workspace.id}/roles`, {
+    headers: { cookie }
+  });
+  requireListItems(parseJson('workspace roles', text), 'workspace roles');
+});
+
+await waitFor('workspace AI settings', async () => {
+  const { text } = await request('workspace AI settings', config.consoleHost, `/api/v1/workspaces/${workspace.id}/ai-settings`, {
+    headers: { cookie }
+  });
+  requireObject(parseJson('workspace AI settings', text), 'workspace AI settings');
+});
+
+await waitFor('workspace members', async () => {
+  const { text } = await request('workspace members', config.consoleHost, `/api/v1/workspaces/${workspace.id}/members?limit=50`, {
+    headers: { cookie }
+  });
+  const members = requireListItems(parseJson('workspace members', text), 'workspace members');
+  if (members.length === 0) throw new Error('workspace members are empty');
+});
+
+await waitFor('workspace invitations', async () => {
+  const { text } = await request('workspace invitations', config.consoleHost, `/api/v1/workspaces/${workspace.id}/invitations?limit=50`, {
+    headers: { cookie }
+  });
+  requireListItems(parseJson('workspace invitations', text), 'workspace invitations');
+});
+
+await waitFor('workspace audit log', async () => {
+  const { text } = await request('workspace audit log', config.consoleHost, `/api/v1/workspaces/${workspace.id}/audit-log?limit=25`, {
+    headers: { cookie }
+  });
+  requireListItems(parseJson('workspace audit log', text), 'workspace audit log');
+});
+
+const workspaceIssues = await waitFor('workspace issues', async () => {
+  const { text } = await request('workspace issues', config.consoleHost, `/api/v1/workspaces/${workspace.id}/issues?limit=25`, {
+    headers: { cookie }
+  });
+  return requireListItems(parseJson('workspace issues', text), 'workspace issues');
+});
+
+if (workspaceIssues.length > 0) {
+  const issue = workspaceIssues[0];
+  await waitFor('workspace issue detail', async () => {
+    const { text } = await request(
+      'workspace issue detail',
+      config.consoleHost,
+      `/api/v1/workspaces/${workspace.id}/issues/${encodeURIComponent(issue.id)}`,
+      { headers: { cookie } }
+    );
+    const payload = requireObject(parseJson('workspace issue detail', text), 'workspace issue detail');
+    if (payload.id !== issue.id) throw new Error('workspace issue detail id does not match listed issue');
+  });
+
+  await waitFor('workspace issue observations', async () => {
+    const { text } = await request(
+      'workspace issue observations',
+      config.consoleHost,
+      `/api/v1/workspaces/${workspace.id}/issues/${encodeURIComponent(issue.id)}/observations?limit=10`,
+      { headers: { cookie } }
+    );
+    requireListItems(parseJson('workspace issue observations', text), 'workspace issue observations');
+  });
+}
+
 const cluster = await waitFor('cluster list', async () => {
   const { text } = await request('cluster list', config.consoleHost, `/api/v1/workspaces/${workspace.id}/kubernetes-clusters`, {
     headers: { cookie }
@@ -311,6 +398,292 @@ await waitFor('cluster detail', async () => {
   const payload = requireObject(parseJson('cluster detail', text), 'cluster detail');
   if (payload.id !== cluster.id) throw new Error('cluster detail id does not match listed cluster');
 });
+
+await waitFor('target list', async () => {
+  const { text } = await request(
+    'target list',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets?limit=50`,
+    { headers: { cookie } }
+  );
+  const targets = requireListItems(parseJson('target list', text), 'target list');
+  if (targets.length === 0) throw new Error('target list is empty');
+});
+
+await waitFor('cluster target detail', async () => {
+  const { text } = await request(
+    'cluster target detail',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('cluster target detail', text), 'cluster target detail');
+  if (payload.id !== cluster.id && payload.targetId !== cluster.id) throw new Error('cluster target detail id does not match listed cluster');
+});
+
+await waitFor('cluster resources', async () => {
+  const { text } = await request(
+    'cluster resources',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/kubernetes-clusters/${cluster.id}/resources`,
+    { headers: { cookie } }
+  );
+  const resources = requireListItems(parseJson('cluster resources', text), 'cluster resources');
+  if (resources.length === 0) throw new Error('cluster resources are empty');
+});
+
+await waitFor('cluster metrics', async () => {
+  const { text } = await request(
+    'cluster metrics',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/kubernetes-clusters/${cluster.id}/metrics/history?window=6h&limit=24`,
+    { headers: { cookie } }
+  );
+  firstArrayField(parseJson('cluster metrics', text), ['points', 'items'], 'cluster metrics');
+});
+
+await waitFor('workspace cluster metrics', async () => {
+  const { text } = await request(
+    'workspace cluster metrics',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/kubernetes-clusters/metrics/history?clusterIds=${encodeURIComponent(cluster.id)}&window=6h&limit=24`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('workspace cluster metrics', text), 'workspace cluster metrics');
+  if (!Array.isArray(payload.items)) throw new Error('workspace cluster metrics response missing items array');
+});
+
+await waitFor('cluster sessions', async () => {
+  const { text } = await request(
+    'cluster sessions',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/kubernetes-clusters/${cluster.id}/sessions?limit=10`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('cluster sessions', text), 'cluster sessions');
+});
+
+await waitFor('cluster MCP catalog', async () => {
+  const { text } = await request(
+    'cluster MCP catalog',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/mcp/catalog?limit=50`,
+    { headers: { cookie } }
+  );
+  requireObject(parseJson('cluster MCP catalog', text), 'cluster MCP catalog');
+});
+
+await waitFor('cluster target tools', async () => {
+  const { text } = await request(
+    'cluster target tools',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/tools`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('cluster target tools', text), 'cluster target tools');
+});
+
+await waitFor('cluster assistant capabilities preview', async () => {
+  const { text } = await request(
+    'cluster assistant capabilities preview',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/assistant/capabilities-preview?toolAccessMode=read_only`,
+    { headers: { cookie } }
+  );
+  requireObject(parseJson('cluster assistant capabilities preview', text), 'cluster assistant capabilities preview');
+});
+
+await waitFor('cluster target skills', async () => {
+  const { text } = await request(
+    'cluster target skills',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/skills?limit=25`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('cluster target skills', text), 'cluster target skills');
+});
+
+await waitFor('cluster knowledge bank entries', async () => {
+  const { text } = await request(
+    'cluster knowledge bank entries',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/knowledge-bank?limit=25`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('cluster knowledge bank entries', text), 'cluster knowledge bank entries');
+});
+
+await waitFor('cluster knowledge bank activity', async () => {
+  const { text } = await request(
+    'cluster knowledge bank activity',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/knowledge-bank/activity`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('cluster knowledge bank activity', text), 'cluster knowledge bank activity');
+});
+
+await waitFor('cluster knowledge bank export', async () => {
+  const { text } = await request(
+    'cluster knowledge bank export',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/knowledge-bank/export`,
+    { headers: { cookie } }
+  );
+  if (typeof text !== 'string') throw new Error('knowledge bank export did not return text');
+});
+
+await waitFor('workspace agents', async () => {
+  const { text } = await request(
+    'workspace agents',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/agents`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('workspace agents', text), 'workspace agents');
+});
+
+const agents = await waitFor('workspace agents including inactive', async () => {
+  const { text } = await request(
+    'workspace agents including inactive',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/agents?includeInactive=true`,
+    { headers: { cookie } }
+  );
+  const items = requireListItems(parseJson('workspace agents including inactive', text), 'workspace agents including inactive');
+  if (items.length === 0) throw new Error('workspace agents including inactive is empty');
+  return items;
+});
+
+const agent = agents[0];
+await waitFor('agent detail', async () => {
+  const { text } = await request(
+    'agent detail',
+    config.consoleHost,
+    `/api/v1/agents/${encodeURIComponent(agent.id)}?workspaceId=${encodeURIComponent(workspace.id)}`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('agent detail', text), 'agent detail');
+  if (!payload.agent || payload.agent.id !== agent.id) throw new Error('agent detail id does not match listed agent');
+});
+
+await waitFor('agent versions', async () => {
+  const { text } = await request(
+    'agent versions',
+    config.consoleHost,
+    `/api/v1/agents/${encodeURIComponent(agent.id)}/versions?workspaceId=${encodeURIComponent(workspace.id)}`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('agent versions', text), 'agent versions');
+});
+
+await waitFor('agent activity', async () => {
+  const { text } = await request(
+    'agent activity',
+    config.consoleHost,
+    `/api/v1/agents/${encodeURIComponent(agent.id)}/activity?workspaceId=${encodeURIComponent(workspace.id)}`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('agent activity', text), 'agent activity');
+});
+
+const workflow = await waitFor('workspace workflows', async () => {
+  const { text } = await request(
+    'workspace workflows',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/workflows`,
+    { headers: { cookie } }
+  );
+  const workflows = requireListItems(parseJson('workspace workflows', text), 'workspace workflows');
+  if (workflows.length === 0) throw new Error('expected at least one workflow from development seed');
+  return workflows[0];
+});
+
+await waitFor('workspace workflow options', async () => {
+  const { text } = await request(
+    'workspace workflow options',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/workflow-options`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('workspace workflow options', text), 'workspace workflow options');
+  for (const field of ['agents', 'mcpServers', 'mcpTools', 'skills', 'approvalPolicies', 'runtimeLimits', 'retentionPolicies']) {
+    if (!Array.isArray(payload[field])) throw new Error(`workflow options response missing ${field} array`);
+  }
+});
+
+await waitFor('workspace workflow schedules', async () => {
+  const { text } = await request(
+    'workspace workflow schedules',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/workflow-schedules`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('workspace workflow schedules', text), 'workspace workflow schedules');
+});
+
+await waitFor('workspace approvals', async () => {
+  const { text } = await request(
+    'workspace approvals',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/approvals?status=pending&limit=25`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('workspace approvals', text), 'workspace approvals');
+});
+
+await waitFor('workflow detail', async () => {
+  const { text } = await request(
+    'workflow detail',
+    config.consoleHost,
+    `/api/v1/workflows/${workflow.id}?workspaceId=${encodeURIComponent(workspace.id)}`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('workflow detail', text), 'workflow detail');
+  if (!payload.workflow || payload.workflow.id !== workflow.id) throw new Error('workflow detail id does not match listed workflow');
+});
+
+await waitFor('workflow sessions', async () => {
+  const { text } = await request(
+    'workflow sessions',
+    config.consoleHost,
+    `/api/v1/workflows/${workflow.id}/sessions?workspaceId=${encodeURIComponent(workspace.id)}`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('workflow sessions', text), 'workflow sessions');
+});
+
+await waitFor('workspace workflow MCP servers', async () => {
+  const { text } = await request(
+    'workspace workflow MCP servers',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/mcp/servers`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('workspace workflow MCP servers', text), 'workspace workflow MCP servers');
+});
+
+const workflowMcpServers = await waitFor('workspace workflow MCP servers with tools', async () => {
+  const { text } = await request(
+    'workspace workflow MCP servers with tools',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/mcp/servers`,
+    { headers: { cookie } }
+  );
+  return requireListItems(parseJson('workspace workflow MCP servers with tools', text), 'workspace workflow MCP servers with tools');
+});
+
+if (workflowMcpServers.length > 0) {
+  await waitFor('workspace workflow MCP server tools', async () => {
+    const { text } = await request(
+      'workspace workflow MCP server tools',
+      config.consoleHost,
+      `/api/v1/workspaces/${workspace.id}/mcp/servers/${encodeURIComponent(workflowMcpServers[0].id)}/tools`,
+      { headers: { cookie } }
+    );
+    requireListItems(parseJson('workspace workflow MCP server tools', text), 'workspace workflow MCP server tools');
+  });
+}
 
 const vm = await waitFor('virtual machine list', async () => {
   const { text } = await request(
@@ -336,6 +709,17 @@ await waitFor('virtual machine detail online', async () => {
   if (payload.status !== 'online') throw new Error(`VM is ${payload.status}; expected online`);
 });
 
+await waitFor('virtual machine target detail', async () => {
+  const { text } = await request(
+    'virtual machine target detail',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('virtual machine target detail', text), 'virtual machine target detail');
+  if (payload.id !== vm.id && payload.targetId !== vm.id) throw new Error('VM target detail id does not match listed VM');
+});
+
 await waitFor('virtual machine resources', async () => {
   const { text } = await request(
     'virtual machine resources',
@@ -347,15 +731,27 @@ await waitFor('virtual machine resources', async () => {
   if (resources.length === 0) throw new Error('VM resources are empty');
 });
 
-await waitFor('virtual machine findings', async () => {
+await waitFor('virtual machine issues', async () => {
   const { text } = await request(
-    'virtual machine findings',
+    'virtual machine issues',
     config.consoleHost,
-    `/api/v1/workspaces/${workspace.id}/virtual-machines/${vm.id}/findings`,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/issues?limit=20`,
     { headers: { cookie } }
   );
-  const findings = requireListItems(parseJson('virtual machine findings', text), 'virtual machine findings');
-  if (findings.length === 0) throw new Error('VM findings are empty');
+  requireListItems(parseJson('virtual machine issues', text), 'virtual machine issues');
+});
+
+await waitFor('virtual machine issue summary', async () => {
+  const { text } = await request(
+    'virtual machine issue summary',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/issues/summary`,
+    { headers: { cookie } }
+  );
+  const summary = requireObject(parseJson('virtual machine issue summary', text), 'virtual machine issue summary');
+  for (const field of ['total', 'active', 'recovering', 'critical', 'warning', 'info']) {
+    if (!Number.isInteger(summary[field])) throw new Error(`VM issue summary missing integer ${field}`);
+  }
 });
 
 await waitFor('virtual machine metrics', async () => {
@@ -391,6 +787,39 @@ await waitFor('virtual machine MCP servers', async () => {
   if (servers.length === 0) throw new Error('expected VM MCP server registrations');
 });
 
+const vmMcpServers = await waitFor('virtual machine MCP servers with tools', async () => {
+  const { text } = await request(
+    'virtual machine MCP servers with tools',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/mcp/servers`,
+    { headers: { cookie } }
+  );
+  return requireListItems(parseJson('virtual machine MCP servers with tools', text), 'virtual machine MCP servers with tools');
+});
+
+if (vmMcpServers.length > 0) {
+  await waitFor('virtual machine MCP server tools', async () => {
+    const { text } = await request(
+      'virtual machine MCP server tools',
+      config.consoleHost,
+      `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/mcp/servers/${encodeURIComponent(vmMcpServers[0].id)}/tools?limit=25`,
+      { headers: { cookie } }
+    );
+    requireListItems(parseJson('virtual machine MCP server tools', text), 'virtual machine MCP server tools');
+  });
+}
+
+await waitFor('virtual machine chat activity', async () => {
+  const { text } = await request(
+    'virtual machine chat activity',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/chat-activity?windowSeconds=300`,
+    { headers: { cookie } }
+  );
+  const payload = requireObject(parseJson('virtual machine chat activity', text), 'virtual machine chat activity');
+  if (!Array.isArray(payload.recentActivity)) throw new Error('VM chat activity response missing recentActivity array');
+});
+
 const vmSession = await waitFor('virtual machine troubleshooting session', async () => {
   const { text } = await request(
     'virtual machine troubleshooting session',
@@ -406,6 +835,16 @@ const vmSession = await waitFor('virtual machine troubleshooting session', async
   const payload = requireObject(parseJson('virtual machine troubleshooting session', text), 'virtual machine troubleshooting session');
   if (!payload.id) throw new Error('VM session response missing id');
   return payload;
+});
+
+await waitFor('virtual machine session list', async () => {
+  const { text } = await request(
+    'virtual machine session list',
+    config.consoleHost,
+    `/api/v1/workspaces/${workspace.id}/targets/${vm.id}/sessions?limit=10`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('virtual machine session list', text), 'virtual machine session list');
 });
 
 const vmRun = await waitFor('virtual machine troubleshooting run dispatch', async () => {
@@ -429,6 +868,16 @@ const vmRun = await waitFor('virtual machine troubleshooting run dispatch', asyn
   return payload;
 });
 
+await waitFor('virtual machine session messages', async () => {
+  const { text } = await request(
+    'virtual machine session messages',
+    config.consoleHost,
+    `/api/v1/sessions/${vmSession.id}/messages?limit=25`,
+    { headers: { cookie } }
+  );
+  requireListItems(parseJson('virtual machine session messages', text), 'virtual machine session messages');
+});
+
 await waitFor('virtual machine troubleshooting run completed with tool call', async () => {
   const { text } = await request('virtual machine troubleshooting run', config.consoleHost, `/api/v1/runs/${vmRun.run_id}`, {
     headers: { cookie }
@@ -443,6 +892,20 @@ await waitFor('virtual machine troubleshooting run completed with tool call', as
   if (Number(usage.tool_calls || 0) < 1) {
     throw new Error('VM run completed without a recorded tool call');
   }
+});
+
+await waitFor('virtual machine troubleshooting run events', async () => {
+  const { text } = await request('virtual machine troubleshooting run events', config.consoleHost, `/api/v1/runs/${vmRun.run_id}/events`, {
+    headers: { cookie }
+  });
+  requireListItems(parseJson('virtual machine troubleshooting run events', text), 'virtual machine troubleshooting run events');
+});
+
+await waitFor('virtual machine troubleshooting run approvals', async () => {
+  const { text } = await request('virtual machine troubleshooting run approvals', config.consoleHost, `/api/v1/runs/${vmRun.run_id}/approvals`, {
+    headers: { cookie }
+  });
+  requireListItems(parseJson('virtual machine troubleshooting run approvals', text), 'virtual machine troubleshooting run approvals');
 });
 
 console.log('Local AcornOps full-stack smoke passed.');

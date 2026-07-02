@@ -53,4 +53,4 @@ task local-reset
 
 ## Smoke Coverage
 
-`task local-smoke` verifies the seeded Kubernetes cluster and the seeded Linux VM target. The VM checks wait for the agent to come online, confirm snapshot-backed resources, findings, metrics, and journald logs, load VM MCP server registrations, and complete a read-only target-scoped troubleshooting run with a VM tool call. For providerless smoke, bring the stack up with `LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES=true task local-up`; otherwise provide a real key for the configured default provider.
+`task local-smoke` verifies the seeded Kubernetes cluster and the seeded Linux VM target. The VM checks wait for the agent to come online, confirm snapshot-backed resources, durable issue endpoints, metrics, and journald logs, load VM MCP server registrations, and complete a read-only target-scoped troubleshooting run with a VM tool call. For providerless smoke, bring the stack up with `LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES=true task local-up`; otherwise provide a real key for the configured default provider.

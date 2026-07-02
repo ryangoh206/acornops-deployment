@@ -189,6 +189,6 @@ The smoke script connects to the local edge proxy at `http://127.0.0.1:8088`
 and sends `*.acornops.localhost` Host headers, so it does not rely on production
 DNS. It refuses non-local endpoints unless explicitly overridden. Use it after
 `task local-up` to verify edge routing, service readiness, same-origin API auth,
-seeded workspace/target API paths, VM inventory/findings/metrics/logs, VM MCP
+seeded workspace/target API paths, VM inventory/issues/metrics/logs, VM MCP
 server registration, and a completed read-only VM troubleshooting run with a VM
 tool call. It does not touch production.
