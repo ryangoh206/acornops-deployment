@@ -46,7 +46,7 @@ verification or replacing Node.js's public CA trust.
 
 ## Status
 
-Source implementation validated; release and adoption pending.
+Chart release and source metadata adoption validated; environment rollout pending.
 
 Local evidence:
 
@@ -57,7 +57,15 @@ Local evidence:
 - Default, ConfigMap, Secret, ambiguous, incomplete, disabled-control-plane,
   internal-mTLS coexistence, and extra-env rendering cases passed their expected
   assertions.
+- Draft PR #8 passed CI and merged to `main` at `503fe9b`.
+- Release tag `v0.0.1-experimental.6` published the OCI chart with digest
+  `sha256:bae907e49613d986ae8fb045544cba4144f5a73e271d6bdf4df785a76605e8bb`.
+- The classic chart mirror published package digest
+  `5d9b17b2a8231c5b8e5daefa469037bd584770967f00113785f1ed5cc881e26a`;
+  its index entry matches and the GitHub Pages package URL returns HTTP 200.
+- `Chart.yaml` and the Kubernetes stack release pin now track the published
+  `0.0.1-experimental.6` chart.
 
-Remaining external evidence requires the release tag and chart publication,
-the target namespace's trust resource and NetworkPolicy, a deployed OIDC
-provider, and the live public/private/wrong/missing/rotation scenarios.
+Remaining external evidence requires the internal Artifactory mirror, the
+target namespace's trust resource and NetworkPolicy, a deployed OIDC provider,
+and the live public/private/wrong/missing/rotation scenarios.
