@@ -5,6 +5,9 @@ import path from 'node:path';
 import { ownerPodLogArgs } from './lib/k8s-ha-smoke/platform.mjs';
 
 const chart = 'kubernetes/helm/acornops-platform';
+const chartManagedIngressValues = `${chart}/examples/values-ingress-chart-managed.yaml`;
+const disabledIngressValues = `${chart}/examples/values-ingress-disabled.yaml`;
+const externalIngressValues = `${chart}/examples/values-ingress-external.yaml`;
 const k3sValues = `${chart}/examples/values-k3s-single-node.yaml`;
 const k3sKeycloakValues = `${chart}/examples/values-k3s-keycloak.yaml`;
 const productionValues = `${chart}/examples/values-production.yaml`;
@@ -38,6 +41,50 @@ const internalTlsArgs = [
   'internalTransport.tls.certificates.executionEngine.secretName=execution-engine-tls',
   '--set-string',
   'internalTransport.tls.certificates.llmGateway.secretName=llm-gateway-tls'
+];
+const externalIngressArgs = ['--set', 'exposure.ingress.enabled=false'];
+const emptyIngressControllerArgs = [
+  '--set-json',
+  'networkPolicies.ingressController.from=[]'
+];
+const customIngressControllerPeers = [
+  {
+    namespaceSelector: {
+      matchLabels: {
+        'kubernetes.io/metadata.name': 'ingress-system'
+      }
+    },
+    podSelector: {
+      matchLabels: {
+        'app.kubernetes.io/name': 'ingress-nginx',
+        'app.kubernetes.io/component': 'controller'
+      },
+      matchExpressions: [
+        {
+          key: 'acornops.io/ingress-scope',
+          operator: 'In',
+          values: ['public']
+        }
+      ]
+    }
+  },
+  {
+    namespaceSelector: {
+      matchLabels: {
+        'kubernetes.io/metadata.name': 'internal-gateway'
+      }
+    }
+  },
+  {
+    ipBlock: {
+      cidr: '192.0.2.0/24',
+      except: ['192.0.2.128/25']
+    }
+  }
+];
+const customIngressControllerArgs = [
+  '--set-json',
+  `networkPolicies.ingressController.from=${JSON.stringify(customIngressControllerPeers)}`
 ];
 const staleAgentChartRefPattern = /oci:\/\/ghcr\.io\/acornops\/charts\/acornops-agent(?:\s|$|["'}`])/;
 
@@ -81,6 +128,82 @@ function assertExcludes(output, needle, message) {
 function assertMatch(output, pattern, message) {
   if (!pattern.test(output)) {
     throw new Error(`${message}\nPattern: ${pattern}`);
+  }
+}
+
+function assertEqual(actual, expected, message) {
+  if (actual !== expected) {
+    throw new Error(`${message}\nExpected:\n${expected}\nActual:\n${actual}`);
+  }
+}
+
+function assertOccurrences(output, needle, expected, message) {
+  const actual = output.split(needle).length - 1;
+  if (actual !== expected) {
+    throw new Error(`${message}\nExpected ${expected} occurrences of ${needle}, found ${actual}`);
+  }
+}
+
+function normalizedManifestDocuments(output) {
+  return output
+    .split(/^---\s*$/m)
+    .map((document) => document.trim())
+    .filter((document) => document.includes('\nkind: '));
+}
+
+function manifestsWithoutKind(output, kind) {
+  return normalizedManifestDocuments(output)
+    .filter((document) => !document.includes(`\nkind: ${kind}\n`))
+    .join('\n---\n');
+}
+
+function firstIngressFromBlock(networkPolicy) {
+  const ingressMarker = '\n  ingress:\n';
+  const ingressStart = networkPolicy.indexOf(ingressMarker);
+  if (ingressStart === -1) {
+    throw new Error('Could not find the ingress rules');
+  }
+  const fromMarker = '    - from:\n';
+  const fromStart = networkPolicy.indexOf(fromMarker, ingressStart + ingressMarker.length);
+  if (fromStart === -1) {
+    throw new Error('Could not find the first ingress from block');
+  }
+  const portsStart = networkPolicy.indexOf('\n      ports:', fromStart + fromMarker.length);
+  if (portsStart === -1) {
+    throw new Error('Could not find ports for the first ingress from block');
+  }
+  return networkPolicy.slice(fromStart + fromMarker.length, portsStart).trimEnd();
+}
+
+function firstIngressRule(networkPolicy) {
+  const ingressMarker = '\n  ingress:\n';
+  const ingressStart = networkPolicy.indexOf(ingressMarker);
+  if (ingressStart === -1) {
+    throw new Error('Could not find the ingress rules');
+  }
+  const ruleStart = networkPolicy.indexOf('    - from:\n', ingressStart + ingressMarker.length);
+  if (ruleStart === -1) {
+    throw new Error('Could not find the first ingress rule');
+  }
+  const nextRule = networkPolicy.indexOf('\n    - from:\n', ruleStart + 1);
+  return networkPolicy.slice(ruleStart, nextRule === -1 ? undefined : nextRule).trimEnd();
+}
+
+function assertNoEmptyFromRules(output, message) {
+  const lines = output.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].trim() !== '- from:') {
+      continue;
+    }
+    const indentation = lines[index].length - lines[index].trimStart().length;
+    const nextLine = lines.slice(index + 1).find((line) => line.trim());
+    if (!nextLine) {
+      throw new Error(`${message}\nEmpty from rule near line ${index + 1}`);
+    }
+    const nextIndentation = nextLine.length - nextLine.trimStart().length;
+    if (nextLine.trim() === '[]' || nextLine.trim() === 'null' || nextIndentation <= indentation + 2) {
+      throw new Error(`${message}\nEmpty from rule near line ${index + 1}`);
+    }
   }
 }
 
@@ -128,9 +251,55 @@ for (const valuesFile of exampleValues) {
 }
 runHelm(['lint', chart, '--strict', ...configMapCaArgs]);
 runHelm(['lint', chart, '--strict', ...secretCaArgs]);
+for (const args of [
+  externalIngressArgs,
+  emptyIngressControllerArgs,
+  [...externalIngressArgs, ...emptyIngressControllerArgs],
+  ['--set', 'networkPolicies.enabled=false'],
+  [...externalIngressArgs, '--set', 'networkPolicies.enabled=false'],
+  customIngressControllerArgs,
+  [...externalIngressArgs, ...customIngressControllerArgs],
+  ['--set', 'components.managementConsole.enabled=false'],
+  ['--set', 'components.controlPlane.enabled=false'],
+  internalTlsArgs,
+  [...internalTlsArgs, ...externalIngressArgs],
+  [...internalTlsArgs, ...emptyIngressControllerArgs]
+]) {
+  runHelm(['lint', chart, '--strict', ...args]);
+}
 
 for (const [args, message] of [
   [['--set', 'ingress.enabled=false'], 'old top-level ingress values should be rejected by schema'],
+  [
+    ['--set-json', 'networkPolicies.ingressController.from=[{}]'],
+    'empty ingress-controller peers should be rejected because they allow every source'
+  ],
+  [
+    ['--set', 'networkPolicies.ingressController.enabled=true'],
+    'ingress-controller access should use the peer list rather than a contradictory enablement flag'
+  ],
+  [
+    ['--set-json', 'networkPolicies.ingressController.from=[{"namespace":"ingress-system"}]'],
+    'unknown ingress-controller peer fields should be rejected'
+  ],
+  [
+    ['--set-json', 'networkPolicies.ingressController.from=[{"ipBlock":{}}]'],
+    'ingress-controller IP blocks should require a CIDR'
+  ],
+  [
+    [
+      '--set-json',
+      'networkPolicies.ingressController.from=[{"namespaceSelector":{},"ipBlock":{"cidr":"192.0.2.0/24"}}]'
+    ],
+    'ingress-controller IP blocks should not be combined with namespace selectors'
+  ],
+  [
+    [
+      '--set-json',
+      'networkPolicies.ingressController.from=[{"podSelector":{"matchExpressions":[{"key":"app","operator":"Equals","values":["ingress"]}]}}]'
+    ],
+    'ingress-controller label selector operators should match Kubernetes LabelSelector semantics'
+  ],
   [
     ['--set', 'components.controlPlane.image.pullPolicy=Sometimes'],
     'invalid image pull policy should be rejected by schema'
@@ -335,9 +504,7 @@ for (const file of [
   `${chart}/README.md`,
   'kubernetes/README.md',
   'docs/OPERATIONS.md',
-  `${chart}/examples/values-production.yaml`,
-  `${chart}/examples/values-k3s-single-node.yaml`,
-  `${chart}/examples/values-k3s-keycloak.yaml`
+  ...exampleValues
 ]) {
   const content = fs.readFileSync(file, 'utf8');
   const stalePaths = [
@@ -422,6 +589,340 @@ assertMatch(
   'control-plane egress should allow internal calls only to execution-engine and llm-gateway service ports'
 );
 const defaultPrefix = 'acornops-acornops-platform';
+const managementConsolePolicyName = `${defaultPrefix}-management-console-ingress`;
+const controlPlanePolicyName = `${defaultPrefix}-control-plane-ingress`;
+const defaultDenyPolicyName = `${defaultPrefix}-default-deny`;
+const managedManagementConsolePolicy = manifestDocument(
+  defaultRender,
+  'NetworkPolicy',
+  managementConsolePolicyName
+);
+const managedControlPlanePolicy = manifestDocument(defaultRender, 'NetworkPolicy', controlPlanePolicyName);
+assertEqual(
+  firstIngressFromBlock(managedManagementConsolePolicy),
+  firstIngressFromBlock(managedControlPlanePolicy),
+  'management-console and control-plane should render the same configured ingress-controller peers'
+);
+assertIncludes(
+  firstIngressRule(managedManagementConsolePolicy),
+  'port: 8080',
+  'management-console ingress-controller access should use its targetPort'
+);
+assertIncludes(
+  firstIngressRule(managedControlPlanePolicy),
+  'port: 8081',
+  'control-plane ingress-controller access should use its targetPort'
+);
+
+const externalIngressRender = helmTemplate(externalIngressArgs);
+assertExcludes(externalIngressRender, 'kind: Ingress', 'external Ingress ownership should omit the chart Ingress');
+assertEqual(
+  manifestsWithoutKind(defaultRender, 'Ingress'),
+  manifestsWithoutKind(externalIngressRender, 'Ingress'),
+  'exposure.ingress.enabled should change only Ingress resource rendering'
+);
+const externalManagementConsolePolicy = manifestDocument(
+  externalIngressRender,
+  'NetworkPolicy',
+  managementConsolePolicyName
+);
+const externalControlPlanePolicy = manifestDocument(
+  externalIngressRender,
+  'NetworkPolicy',
+  controlPlanePolicyName
+);
+assertEqual(
+  managedManagementConsolePolicy,
+  externalManagementConsolePolicy,
+  'management-console NetworkPolicy should not depend on Ingress ownership'
+);
+assertEqual(
+  managedControlPlanePolicy,
+  externalControlPlanePolicy,
+  'control-plane NetworkPolicy should not depend on Ingress ownership'
+);
+
+const chartManagedExampleRender = helmTemplate(['-f', chartManagedIngressValues]);
+const externalIngressExampleRender = helmTemplate(['-f', externalIngressValues]);
+assertIncludes(
+  chartManagedExampleRender,
+  'kind: Ingress',
+  'chart-managed Ingress example should render the public Ingress'
+);
+assertExcludes(
+  externalIngressExampleRender,
+  'kind: Ingress',
+  'external Ingress example should omit the chart Ingress'
+);
+for (const [render, ownership] of [
+  [chartManagedExampleRender, 'chart-managed'],
+  [externalIngressExampleRender, 'external']
+]) {
+  for (const policyName of [managementConsolePolicyName, controlPlanePolicyName]) {
+    assertIncludes(
+      manifestDocument(render, 'NetworkPolicy', policyName),
+      'kubernetes.io/metadata.name: ingress-nginx',
+      `${ownership} Ingress example should allow the configured controller for ${policyName}`
+    );
+  }
+}
+
+const managedEmptyPeersRender = helmTemplate(emptyIngressControllerArgs);
+const externalEmptyPeersRender = helmTemplate([
+  ...externalIngressArgs,
+  ...emptyIngressControllerArgs
+]);
+assertIncludes(
+  managedEmptyPeersRender,
+  'kind: Ingress',
+  'chart-managed Ingress should still render when ingress-controller peers are empty'
+);
+assertExcludes(
+  externalEmptyPeersRender,
+  'kind: Ingress',
+  'external Ingress ownership should still omit the chart Ingress when peers are empty'
+);
+assertEqual(
+  manifestsWithoutKind(managedEmptyPeersRender, 'Ingress'),
+  manifestsWithoutKind(externalEmptyPeersRender, 'Ingress'),
+  'empty ingress-controller peers should produce the same non-Ingress resources in both ownership modes'
+);
+assertNoEmptyFromRules(
+  managedEmptyPeersRender,
+  'empty ingress-controller peers must not render an empty or source-less allow rule'
+);
+assertNoEmptyFromRules(
+  externalEmptyPeersRender,
+  'external Ingress ownership with empty peers must not render an empty or source-less allow rule'
+);
+const disabledIngressExampleRender = helmTemplate(['-f', disabledIngressValues]);
+assertExcludes(
+  disabledIngressExampleRender,
+  'kind: Ingress',
+  'disabled public Ingress example should omit the chart Ingress'
+);
+assertNoEmptyFromRules(
+  disabledIngressExampleRender,
+  'disabled public Ingress example must not render an empty or source-less allow rule'
+);
+assertExcludes(
+  manifestDocument(disabledIngressExampleRender, 'NetworkPolicy', managementConsolePolicyName),
+  '- from:',
+  'disabled public Ingress example should omit management-console controller access'
+);
+assertExcludes(
+  manifestDocument(disabledIngressExampleRender, 'NetworkPolicy', controlPlanePolicyName),
+  'kubernetes.io/metadata.name: ingress-nginx',
+  'disabled public Ingress example should omit control-plane controller access'
+);
+const emptyPeersManagementConsolePolicy = manifestDocument(
+  managedEmptyPeersRender,
+  'NetworkPolicy',
+  managementConsolePolicyName
+);
+const emptyPeersControlPlanePolicy = manifestDocument(
+  managedEmptyPeersRender,
+  'NetworkPolicy',
+  controlPlanePolicyName
+);
+assertExcludes(
+  emptyPeersManagementConsolePolicy,
+  '- from:',
+  'empty peers should omit the management-console ingress-controller rule entirely'
+);
+assertExcludes(
+  emptyPeersControlPlanePolicy,
+  'kubernetes.io/metadata.name: ingress-nginx',
+  'empty peers should omit the control-plane ingress-controller rule entirely'
+);
+assertOccurrences(
+  emptyPeersControlPlanePolicy,
+  '    - from:',
+  3,
+  'empty peers should preserve control-plane rules for execution-engine, llm-gateway, and self traffic'
+);
+assertOccurrences(
+  emptyPeersControlPlanePolicy,
+  'port: 8081',
+  3,
+  'empty peers should preserve every control-plane internal HTTP caller port'
+);
+for (const component of ['execution-engine', 'llm-gateway', 'control-plane']) {
+  assertIncludes(
+    emptyPeersControlPlanePolicy,
+    `app.kubernetes.io/component: ${component}`,
+    `empty peers should preserve control-plane traffic from ${component}`
+  );
+}
+assertEqual(
+  manifestDocument(defaultRender, 'NetworkPolicy', defaultDenyPolicyName),
+  manifestDocument(managedEmptyPeersRender, 'NetworkPolicy', defaultDenyPolicyName),
+  'empty ingress-controller peers should not change the default-deny policy'
+);
+
+const customPortArgs = [
+  '--set',
+  'components.managementConsole.service.port=7080',
+  '--set',
+  'components.managementConsole.service.targetPort=9080',
+  '--set',
+  'components.controlPlane.service.port=7081',
+  '--set',
+  'components.controlPlane.service.targetPort=9081'
+];
+const customPeerRender = helmTemplate([...customIngressControllerArgs, ...customPortArgs]);
+const customManagementConsolePolicy = manifestDocument(
+  customPeerRender,
+  'NetworkPolicy',
+  managementConsolePolicyName
+);
+const customControlPlanePolicy = manifestDocument(customPeerRender, 'NetworkPolicy', controlPlanePolicyName);
+const customManagementConsolePeers = firstIngressFromBlock(customManagementConsolePolicy);
+const customControlPlanePeers = firstIngressFromBlock(customControlPlanePolicy);
+assertEqual(
+  customManagementConsolePeers,
+  customControlPlanePeers,
+  'multiple configured peers should render identically for both public workloads'
+);
+assertMatch(
+  customManagementConsolePeers,
+  /- namespaceSelector:[\s\S]*?kubernetes.io\/metadata.name: ingress-system[\s\S]*?podSelector:[\s\S]*?app.kubernetes.io\/component: controller/,
+  'namespace and pod selectors in the same peer should preserve their combined structure'
+);
+assertIncludes(
+  customManagementConsolePeers,
+  'matchExpressions:',
+  'NetworkPolicy peers should preserve label selector matchExpressions'
+);
+assertIncludes(
+  customManagementConsolePeers,
+  'kubernetes.io/metadata.name: internal-gateway',
+  'multiple ingress-controller namespace peers should remain separate'
+);
+assertIncludes(customManagementConsolePeers, 'ipBlock:', 'NetworkPolicy peers should support IP blocks');
+assertIncludes(customManagementConsolePeers, 'cidr: 192.0.2.0/24', 'NetworkPolicy IP blocks should preserve CIDRs');
+assertIncludes(
+  customManagementConsolePeers,
+  '- 192.0.2.128/25',
+  'NetworkPolicy IP blocks should preserve excluded CIDRs'
+);
+assertExcludes(
+  customManagementConsolePeers,
+  '0.0.0.0/0',
+  'ingress-controller peers should not introduce an internet-wide allowance'
+);
+for (const marker of ['ingress-system', 'internal-gateway', '192.0.2.0/24']) {
+  assertOccurrences(
+    customPeerRender,
+    marker,
+    2,
+    `configured ingress-controller peer ${marker} should appear only in the two public workload policies`
+  );
+}
+assertIncludes(
+  firstIngressRule(customManagementConsolePolicy),
+  'port: 9080',
+  'management-console controller access should follow a customized targetPort'
+);
+assertIncludes(
+  firstIngressRule(customControlPlanePolicy),
+  'port: 9081',
+  'control-plane controller access should follow a customized targetPort'
+);
+assertExcludes(customManagementConsolePolicy, 'port: 7080', 'management-console policy must not use the Service port');
+assertExcludes(customControlPlanePolicy, 'port: 7081', 'control-plane policy must not use the Service port');
+
+const managementConsoleDisabledRender = helmTemplate([
+  ...customIngressControllerArgs,
+  '--set',
+  'components.managementConsole.enabled=false'
+]);
+assertExcludes(
+  managementConsoleDisabledRender,
+  `kind: NetworkPolicy\nmetadata:\n  name: ${managementConsolePolicyName}`,
+  'disabled management-console should omit its NetworkPolicy'
+);
+assertIncludes(
+  manifestDocument(managementConsoleDisabledRender, 'NetworkPolicy', controlPlanePolicyName),
+  'kubernetes.io/metadata.name: ingress-system',
+  'control-plane should retain configured ingress-controller access when management-console is disabled'
+);
+const controlPlaneDisabledRender = helmTemplate([
+  ...customIngressControllerArgs,
+  '--set',
+  'components.controlPlane.enabled=false'
+]);
+assertExcludes(
+  controlPlaneDisabledRender,
+  `kind: NetworkPolicy\nmetadata:\n  name: ${controlPlanePolicyName}`,
+  'disabled control-plane should omit its NetworkPolicy'
+);
+assertIncludes(
+  manifestDocument(controlPlaneDisabledRender, 'NetworkPolicy', managementConsolePolicyName),
+  'kubernetes.io/metadata.name: ingress-system',
+  'management-console should retain configured ingress-controller access when control-plane is disabled'
+);
+
+const managedPoliciesDisabledRender = helmTemplate(['--set', 'networkPolicies.enabled=false']);
+const externalPoliciesDisabledRender = helmTemplate([
+  ...externalIngressArgs,
+  '--set',
+  'networkPolicies.enabled=false'
+]);
+assertIncludes(
+  managedPoliciesDisabledRender,
+  'kind: Ingress',
+  'chart Ingress should render independently when NetworkPolicies are disabled'
+);
+assertExcludes(
+  managedPoliciesDisabledRender,
+  'kind: NetworkPolicy',
+  'disabled NetworkPolicies should omit every NetworkPolicy'
+);
+assertExcludes(
+  externalPoliciesDisabledRender,
+  'kind: Ingress',
+  'external ownership should omit Ingress when NetworkPolicies are disabled'
+);
+assertExcludes(
+  externalPoliciesDisabledRender,
+  'kind: NetworkPolicy',
+  'disabled NetworkPolicies should omit every NetworkPolicy with external ownership'
+);
+assertEqual(
+  manifestsWithoutKind(managedPoliciesDisabledRender, 'Ingress'),
+  manifestsWithoutKind(externalPoliciesDisabledRender, 'Ingress'),
+  'Ingress ownership should remain independent when NetworkPolicies are disabled'
+);
+
+const externalTlsOwnershipRender = helmTemplate([...internalTlsArgs, ...externalIngressArgs]);
+assertEqual(
+  manifestsWithoutKind(helmTemplate(internalTlsArgs), 'Ingress'),
+  manifestsWithoutKind(externalTlsOwnershipRender, 'Ingress'),
+  'Ingress ownership should not change NetworkPolicies when internal TLS is enabled'
+);
+const emptyPeersTlsRender = helmTemplate([...internalTlsArgs, ...emptyIngressControllerArgs]);
+const emptyPeersTlsControlPlanePolicy = manifestDocument(
+  emptyPeersTlsRender,
+  'NetworkPolicy',
+  controlPlanePolicyName
+);
+assertExcludes(
+  emptyPeersTlsControlPlanePolicy,
+  'kubernetes.io/metadata.name: ingress-nginx',
+  'empty peers should omit public access when internal TLS is enabled'
+);
+assertOccurrences(
+  emptyPeersTlsControlPlanePolicy,
+  'port: 8443',
+  3,
+  'empty peers should preserve all control-plane internal mTLS caller rules'
+);
+assertExcludes(
+  emptyPeersTlsControlPlanePolicy,
+  'port: 8081',
+  'empty peers should not leave a public HTTP rule when internal TLS is enabled'
+);
 assertExcludes(defaultRender, 'oidc-additional-ca', 'default chart should not render an OIDC additional CA volume or mount');
 assertExcludes(defaultRender, 'NODE_EXTRA_CA_CERTS', 'default chart should not configure Node.js additional CA trust');
 assertExcludes(defaultRender, oidcAdditionalCaPath, 'default chart should not render the fixed OIDC additional CA path');

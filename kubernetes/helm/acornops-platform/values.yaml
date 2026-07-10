@@ -255,7 +255,8 @@ networkPolicies:
   # Renders namespace-wide default deny plus explicit allow policies for platform flows.
   enabled: true
   ingressController:
-    # Source selector for the cluster ingress controller namespace/pods.
+    # Sources allowed to reach public workloads, independent of who owns the Ingress.
+    # Use an empty list to disable ingress-controller access while retaining default deny.
     from:
       - namespaceSelector:
           matchLabels:

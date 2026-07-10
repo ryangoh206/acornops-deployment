@@ -1,0 +1,14 @@
+# Focused overlay for an equivalent Ingress owned by another release or system.
+# The chart omits its Ingress but still allows the configured controller peers.
+
+exposure:
+  ingress:
+    enabled: false
+
+networkPolicies:
+  enabled: true
+  ingressController:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx

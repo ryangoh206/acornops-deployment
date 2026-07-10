@@ -1,0 +1,17 @@
+# Focused overlay for an Ingress rendered and owned by this chart.
+# Replace the hosts and controller namespace with values for the target cluster.
+
+exposure:
+  ingress:
+    enabled: true
+    className: nginx
+    apiHost: api.acornops.example.org
+    consoleHost: console.acornops.example.org
+
+networkPolicies:
+  enabled: true
+  ingressController:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx

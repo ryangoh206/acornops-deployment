@@ -92,6 +92,13 @@
       "auth.oidc.tls.additionalCaBundle.secretKeyRef.name",
       "auth.oidc.tls.additionalCaBundle.secretKeyRef.key"
     ],
+    "ingressNetworkPolicyHelmValues": [
+      "exposure.ingress.enabled",
+      "networkPolicies.enabled",
+      "networkPolicies.ingressController.from",
+      "components.managementConsole.service.targetPort",
+      "components.controlPlane.service.targetPort"
+    ],
     "agentKRolloutEnv": [
       "ACORNOPS_AGENT_PLATFORM_URL",
       "ACORNOPS_CLUSTER_ID",

@@ -12,6 +12,7 @@ This repository owns deployment and compatibility contracts rather than service 
 - AI provider/model and reasoning summary policy rendered into control-plane runtime env
 - Deployment-track environment templates
 - External integration account-link token wiring for VM Compose and Helm
+- Helm Ingress ownership and NetworkPolicy peer authorization for public workloads
 - Helm `auth.oidc.tls.additionalCaBundle` references for additional private OIDC
   issuer CA trust
 - Helm `internalTransport.tls` values for optional operator-supplied internal HTTPS/mTLS
@@ -32,6 +33,25 @@ Application-layer credentials remain required in both modes:
 and run-scoped JWTs are still enforced. The control-plane public HTTP listener
 continues to serve Ingress traffic, while internal callbacks, JWKS, and the
 built-in MCP bridge use the separate internal HTTPS listener when TLS is enabled.
+
+## Ingress Ownership And NetworkPolicy Peers
+
+Helm Ingress ownership and packet authorization are independent contracts.
+`exposure.ingress.enabled` controls only whether the chart renders the Ingress
+resource. It must not change Services, Deployments, or NetworkPolicy source
+allowances. `networkPolicies.enabled` controls whether the chart renders its
+default-deny and explicit allow policies.
+
+When NetworkPolicies are enabled, `networkPolicies.ingressController.from`
+controls whether and from where ingress-controller traffic may reach the
+management console and control plane, regardless of whether the chart or an
+external system owns the Ingress. A non-empty list renders exactly the
+configured Kubernetes NetworkPolicy peers for both public workloads. An empty
+list omits each ingress-controller allow rule entirely and therefore fails
+closed without weakening default deny or removing internal component rules.
+These rules use each workload's configured `service.targetPort`; the chart does
+not discover ingress-controller labels or infer authorization from Ingress
+ownership.
 
 ## OIDC Additional CA Trust
 
