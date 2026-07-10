@@ -68,6 +68,89 @@ For k3s, override `exposure.ingress.className` to `traefik` and set
 the k3s Traefik controller. The included single-node k3s examples assume
 Traefik runs in `kube-system`.
 
+## Public Ingress Ownership And NetworkPolicy
+
+Ingress object ownership and traffic authorization are independent contracts:
+
+| Value | Contract |
+|---|---|
+| `exposure.ingress.enabled` | Controls only whether this chart renders the public `Ingress`. Set it to `false` when another Helm release, a GitOps application, or an operator owns the equivalent Ingress. |
+| `networkPolicies.ingressController.from` | Controls which Kubernetes NetworkPolicy peers can reach the management-console and control-plane pod ports. It applies whether the chart or another system owns the Ingress. |
+
+A non-empty `networkPolicies.ingressController.from` list is rendered exactly
+as the source peers for both public workloads. An empty list omits the complete
+ingress-controller rule; it does not render an empty `from` field. Default deny
+and the explicit internal component rules remain in place, so an empty list is
+the supported fail-closed configuration. No separate ingress-controller
+enablement flag is required.
+
+Use one of the focused overlays as a starting point:
+
+- [`values-ingress-chart-managed.yaml`](examples/values-ingress-chart-managed.yaml)
+  renders the chart-owned Ingress and allows the configured controller peers.
+- [`values-ingress-external.yaml`](examples/values-ingress-external.yaml) omits
+  the chart-owned Ingress while preserving the same controller allowances for
+  an externally managed equivalent.
+- [`values-ingress-disabled.yaml`](examples/values-ingress-disabled.yaml) omits
+  both the chart-owned Ingress and public ingress-controller allow rules.
+
+Changing only `exposure.ingress.enabled` between the first two ownership models
+must not change the rendered workload NetworkPolicies. The external owner is
+responsible for the hosts, paths, TLS, and lifecycle of its Ingress; this chart
+does not inspect or mutate that resource.
+
+### Selecting ingress-controller peers
+
+A namespace-only peer permits every pod in the matching namespace and is best
+suited to a namespace dedicated to the ingress controller. In a shared
+namespace, combine namespace and pod selectors in the same peer to narrow the
+source:
+
+```yaml
+networkPolicies:
+  ingressController:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: ingress-nginx
+            app.kubernetes.io/component: controller
+```
+
+The namespace and pod selectors in that peer are both required to match. To
+allow multiple controllers, add peer items rather than merging their labels:
+
+```yaml
+networkPolicies:
+  ingressController:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: internal-gateway
+        podSelector:
+          matchLabels:
+            app: internal-gateway-controller
+```
+
+Peer items are alternatives. Inspect the labels on the actual controller pods
+and namespace before deploying; the chart does not assume a controller name,
+discover cluster labels, or install an ingress controller. The values schema
+also accepts standard NetworkPolicy `ipBlock` peers.
+
+### Destination ports
+
+NetworkPolicy ports describe the destination pod port, not the externally
+visible Service port. The public rules therefore use
+`components.managementConsole.service.targetPort` (default `8080`) and
+`components.controlPlane.service.targetPort` (default `8081`). Keep those
+values aligned with the workloads' `http` container ports; do not substitute
+the Service `port` value in a policy override.
+
 Write confirmation defaults are controlled by:
 
 - `agent.runtime.writeConfirmationRequired` -> `AGENT_WRITE_CONFIRMATION_REQUIRED`

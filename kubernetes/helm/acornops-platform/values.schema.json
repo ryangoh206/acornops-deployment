@@ -858,7 +858,64 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "from": { "type": "array" }
+        "from": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/networkPolicyPeer" }
+        }
+      }
+    },
+    "networkPolicyPeer": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "namespaceSelector": { "$ref": "#/definitions/labelSelector" },
+        "podSelector": { "$ref": "#/definitions/labelSelector" },
+        "ipBlock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cidr"],
+          "properties": {
+            "cidr": { "type": "string", "minLength": 1 },
+            "except": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      },
+      "allOf": [
+        { "not": { "required": ["ipBlock", "namespaceSelector"] } },
+        { "not": { "required": ["ipBlock", "podSelector"] } }
+      ]
+    },
+    "labelSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "matchExpressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "operator"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "operator": {
+                "type": "string",
+                "enum": ["In", "NotIn", "Exists", "DoesNotExist"]
+              },
+              "values": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
       }
     },
     "networkEgressGroup": {

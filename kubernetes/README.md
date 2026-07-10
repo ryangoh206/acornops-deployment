@@ -21,6 +21,9 @@ kubernetes/
       values.yaml
       values.schema.json
       examples/
+        values-ingress-chart-managed.yaml
+        values-ingress-disabled.yaml
+        values-ingress-external.yaml
         values-k3s-single-node.yaml
         values-k3s-keycloak.yaml
         values-production.yaml
@@ -118,7 +121,8 @@ Override at least:
 - `auth.password.enabled` if you do not want username/password login alongside OIDC
 - `auth.password.signupEnabled=true` only after SMTP delivery is configured and tested
 - `email.deliveryMode=smtp`, `email.from`, `email.smtp.host`, and `SMTP_USERNAME`/`SMTP_PASSWORD` when enabling password self-service signup
-- `networkPolicies.ingressController.from` if your ingress controller is not in the `ingress-nginx` namespace
+- `networkPolicies.ingressController.from` to match the actual
+  ingress-controller namespace and, for a shared namespace, its pod labels
 - `networkPolicies.postgres.to` for private Postgres endpoints
 - `networkPolicies.redis.to` for private Redis endpoints
 - `networkPolicies.vault.to` if using a private Vault backend
@@ -243,7 +247,9 @@ Docker Compose internal mTLS is not implemented by this Helm-focused setting.
 
 ## Public Routes
 
-The chart exposes only these routes through Kubernetes Ingress:
+When `exposure.ingress.enabled=true`, the chart exposes only these routes
+through its Kubernetes Ingress. An externally managed equivalent should route
+the same hosts and paths:
 
 - `console.acornops.dev/` -> management console
 - `api.acornops.dev/api` -> control-plane
@@ -270,6 +276,51 @@ egress default to public service ports. Private databases, Redis,
 Vault, OIDC, webhook, or MCP destinations must be explicitly allowed in values
 before deploying to production. The policies require a CNI that enforces
 `networking.k8s.io/v1` NetworkPolicy.
+
+### Ingress ownership and controller access
+
+The chart intentionally separates Ingress ownership from NetworkPolicy
+authorization:
+
+- `exposure.ingress.enabled=true` renders the chart-owned Ingress; `false`
+  leaves Ingress creation and lifecycle to another system.
+- A non-empty `networkPolicies.ingressController.from` allows exactly those
+  peers to the public management-console and control-plane pod ports, in either
+  ownership model.
+- `networkPolicies.ingressController.from: []` omits both public controller
+  allow rules. Default deny and internal component rules remain active.
+
+Disabling the chart-owned Ingress does not disable the controller allowance,
+and enabling it does not create an implicit allowance. Start from the focused
+[`values-ingress-chart-managed.yaml`](helm/acornops-platform/examples/values-ingress-chart-managed.yaml),
+[`values-ingress-external.yaml`](helm/acornops-platform/examples/values-ingress-external.yaml),
+or
+[`values-ingress-disabled.yaml`](helm/acornops-platform/examples/values-ingress-disabled.yaml)
+overlay. Apply a focused overlay after the environment's baseline values so its
+ownership choice wins, for example:
+
+```bash
+helm upgrade --install acornops kubernetes/helm/acornops-platform \
+  --namespace acornops \
+  --create-namespace \
+  --atomic \
+  --cleanup-on-fail \
+  -f kubernetes/helm/acornops-platform/examples/values-production.yaml \
+  -f kubernetes/helm/acornops-platform/examples/values-ingress-external.yaml
+```
+
+A namespace-only peer permits every pod in that namespace. For a shared
+namespace, put `namespaceSelector` and `podSelector` in the same peer so both
+must match. Add separate peer items for multiple controllers. Inspect the real
+namespace and pod labels rather than assuming the defaults match the cluster;
+see the chart's
+[`Selecting ingress-controller peers`](helm/acornops-platform/README.md#selecting-ingress-controller-peers)
+guidance.
+
+The allow-rule ports are destination pod ports. They follow
+`components.managementConsole.service.targetPort` and
+`components.controlPlane.service.targetPort` (defaults `8080` and `8081`), not
+the Services' externally visible `port` fields.
 
 ## Password Signup And Reset Email
 

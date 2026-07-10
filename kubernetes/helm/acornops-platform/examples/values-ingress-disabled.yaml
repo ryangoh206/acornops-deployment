@@ -1,0 +1,11 @@
+# Focused fail-closed overlay with no chart Ingress and no public controller
+# allowance. Default deny and explicit internal component rules remain active.
+
+exposure:
+  ingress:
+    enabled: false
+
+networkPolicies:
+  enabled: true
+  ingressController:
+    from: []

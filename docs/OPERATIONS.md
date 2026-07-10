@@ -100,6 +100,133 @@ allow any private Postgres, Redis, OIDC, Vault, webhook, or MCP destinations in
 `networkPolicies.postgres.to`, `networkPolicies.redis.to`, `networkPolicies.vault.to`,
 or `networkPolicies.extraEgress.*`.
 
+### Ingress ownership and public access
+
+Treat Ingress ownership and NetworkPolicy authorization as separate choices:
+
+- `exposure.ingress.enabled` controls only whether the platform chart renders
+  the public Ingress. Keep it `false` when an operator, GitOps application, or
+  another Helm release owns the equivalent Ingress.
+- `networkPolicies.ingressController.from` controls which peers can reach the
+  management console and control plane. Configure the actual controller peers
+  for either ownership model.
+- Set `networkPolicies.ingressController.from: []` to render no public
+  ingress-controller allow rule. This fails closed while preserving default
+  deny and explicit internal component traffic.
+
+Namespace-only selectors allow every pod in the selected namespace. Add a
+`podSelector` to the same peer when the namespace is shared, and use multiple
+peer items when more than one controller must reach AcornOps. Inspect actual
+namespace and pod labels before deployment. The chart does not discover those
+labels or install the controller.
+
+NetworkPolicy ports are destination pod ports. The public rules use
+`components.managementConsole.service.targetPort` and
+`components.controlPlane.service.targetPort`, which default to TCP `8080` and
+`8081`; they do not use the Services' externally visible `port` values.
+
+### Verify an Ingress deployment
+
+After installing or upgrading, list the policies and inspect the public
+workload policies by their rendered names:
+
+```bash
+kubectl -n acornops get networkpolicy
+
+kubectl -n acornops get networkpolicy \
+  <management-console-networkpolicy-name> -o yaml
+
+kubectl -n acornops get networkpolicy \
+  <control-plane-networkpolicy-name> -o yaml
+```
+
+Confirm both policies contain the configured controller peers and their
+respective destination `targetPort`. When the peer list is empty, confirm
+neither policy contains an empty or broad controller rule and that the
+control-plane's internal component rules still exist.
+
+Verify the control-plane Service and endpoints:
+
+```bash
+kubectl -n acornops get service \
+  <control-plane-service-name> -o yaml
+
+kubectl -n acornops get endpointslice \
+  -l kubernetes.io/service-name=<control-plane-service-name> -o wide
+```
+
+Then verify the management-console route and both public control-plane routes:
+
+```bash
+curl -fsS -o /dev/null https://console.<domain>/
+curl -fsS https://console.<domain>/api/v1/auth/config
+curl -fsS https://api.<domain>/api/v1/auth/config
+```
+
+The API requests should return the same control-plane JSON response without an
+ingress timeout. A working console `/` with `504` responses from both `/api`
+routes points to the shared control-plane path; inspect its policy, Service,
+and EndpointSlice before changing application, hostname, TLS, or OIDC settings.
+
+### Temporary policy for an older chart
+
+If an older chart omits the control-plane allowance when an external Ingress is
+used, apply a tightly selected, additive NetworkPolicy until the corrected
+chart is deployed. This is a conceptual example; copy the pod and namespace
+labels from the live controller and control-plane resources, and use the
+configured control-plane `targetPort`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acornops-control-plane-external-ingress
+  namespace: acornops
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: control-plane
+      app.kubernetes.io/instance: acornops
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8081
+```
+
+Do not disable all NetworkPolicies as a workaround. Kubernetes policies are
+additive, so this policy can grant only the missing flow while the chart's
+default-deny and component policies remain active.
+
+After upgrading to the corrected chart, inspect the chart-managed
+control-plane policy and verify both `/api` routes before removing the temporary
+policy:
+
+```bash
+kubectl -n acornops delete networkpolicy \
+  acornops-control-plane-external-ingress
+```
+
+### Roll back
+
+Use Helm history to select the preceding published chart revision, then roll
+back and repeat the policy, Service, EndpointSlice, and route checks:
+
+```bash
+helm -n acornops history acornops
+helm -n acornops rollback acornops <revision> --wait --cleanup-on-fail
+```
+
+If the target revision predates ingress-independent policy rendering and the
+deployment uses an external Ingress, apply or retain the temporary additive
+policy before the rollback. Keep it until a corrected release is deployed and
+verified; otherwise the control-plane routes can return to the denied state.
+
 The default Kubernetes and VM deployment policy uses OpenAI with `gpt-5.5` and
 allows workspace reasoning summaries, which default to `auto`. Provider API keys
 are workspace-owned and configured from AI Settings.

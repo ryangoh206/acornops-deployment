@@ -33,11 +33,13 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    {{- with $np.ingressController.from }}
     - from:
-        {{- toYaml $np.ingressController.from | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       ports:
         - protocol: TCP
-          port: {{ .Values.components.managementConsole.service.targetPort }}
+          port: {{ $.Values.components.managementConsole.service.targetPort }}
+    {{- end }}
 {{- end }}
 {{- if .Values.components.controlPlane.enabled }}
 ---
@@ -54,12 +56,12 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    {{- if .Values.exposure.ingress.enabled }}
+    {{- with $np.ingressController.from }}
     - from:
-        {{- toYaml $np.ingressController.from | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       ports:
         - protocol: TCP
-          port: {{ .Values.components.controlPlane.service.targetPort }}
+          port: {{ $.Values.components.controlPlane.service.targetPort }}
     {{- end }}
     {{- if .Values.components.executionEngine.enabled }}
     - from:
