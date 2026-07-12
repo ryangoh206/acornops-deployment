@@ -1,5 +1,9 @@
 import http from 'node:http';
 import https from 'node:https';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 const DEFAULTS = {
   edgeUrl: 'http://127.0.0.1:8088',
@@ -25,7 +29,9 @@ const config = {
   llmGatewayHost: env('ACORNOPS_SMOKE_LLM_GATEWAY_HOST', DEFAULTS.llmGatewayHost),
   timeoutMs: Number(env('ACORNOPS_SMOKE_TIMEOUT_MS', String(DEFAULTS.timeoutMs))),
   intervalMs: Number(env('ACORNOPS_SMOKE_INTERVAL_MS', String(DEFAULTS.intervalMs))),
-  allowNonLocal: env('ACORNOPS_SMOKE_ALLOW_NON_LOCAL', 'false') === 'true'
+  allowNonLocal: env('ACORNOPS_SMOKE_ALLOW_NON_LOCAL', 'false') === 'true',
+  runRemediation: env('ACORNOPS_SMOKE_RUN_REMEDIATION', 'true') === 'true',
+  kubeconfig: env('LOCAL_KUBECONFIG_PATH', '/tmp/acornops-local-kube/config')
 };
 
 function normalizeBaseUrl(value) {
@@ -182,6 +188,15 @@ function requireReadyStatus(payload, name) {
   if (payload.status && !['ok', 'ready'].includes(payload.status)) {
     throw new Error(`${name} status is ${payload.status}`);
   }
+}
+
+async function kubectl(...args) {
+  if (!config.runRemediation) throw new Error('Local remediation smoke is disabled');
+  const { stdout } = await execFileAsync('kubectl', ['--kubeconfig', config.kubeconfig, ...args], {
+    timeout: 30_000,
+    maxBuffer: 2 * 1024 * 1024
+  });
+  return stdout;
 }
 
 function getSessionCookie(response) {
@@ -492,6 +507,144 @@ await waitFor('cluster assistant capabilities preview', async () => {
   );
   requireObject(parseJson('cluster assistant capabilities preview', text), 'cluster assistant capabilities preview');
 });
+
+if (config.runRemediation) {
+  const demoNamespace = 'acornops-demo';
+  const demoDeployment = 'acornops-demo-unhealthy';
+  const brokenImage = 'nginx:1.27.4-alpnie';
+  const repairedImage = 'nginx:1.27.4-alpine';
+
+  await kubectl('-n', demoNamespace, 'set', 'image', `deployment/${demoDeployment}`, `nginx=${brokenImage}`);
+  await waitFor('repairable demo workload starts in ImagePullBackOff', async () => {
+    const pods = parseJson(
+      'repairable demo pods',
+      await kubectl('-n', demoNamespace, 'get', 'pods', '-l', `app.kubernetes.io/name=${demoDeployment}`, '-o', 'json')
+    );
+    const items = requireListItems(pods, 'repairable demo pods');
+    const hasImagePullFailure = items.some((pod) =>
+      (pod.status?.containerStatuses || []).some((status) =>
+        ['ErrImagePull', 'ImagePullBackOff'].includes(status.state?.waiting?.reason)
+      )
+    );
+    if (!hasImagePullFailure) throw new Error('demo workload has not reached an image pull failure');
+  });
+
+  const remediationSession = await waitFor('Kubernetes remediation session', async () => {
+    const { text } = await request(
+      'Kubernetes remediation session',
+      config.consoleHost,
+      `/api/v1/workspaces/${workspace.id}/targets/${cluster.id}/sessions`,
+      {
+        method: 'POST',
+        headers: { cookie: csrf.cookie, 'content-type': 'application/json', 'x-csrf-token': csrf.token },
+        expectedStatuses: [201],
+        body: JSON.stringify({ title: 'Repair demo ImagePullBackOff' })
+      }
+    );
+    const payload = requireObject(parseJson('Kubernetes remediation session', text), 'Kubernetes remediation session');
+    if (!payload.id) throw new Error('Kubernetes remediation session response missing id');
+    return payload;
+  });
+
+  const remediationRun = await waitFor('Kubernetes remediation run dispatch', async () => {
+    const { text } = await request(
+      'Kubernetes remediation message',
+      config.consoleHost,
+      `/api/v1/sessions/${remediationSession.id}/messages`,
+      {
+        method: 'POST',
+        headers: { cookie: csrf.cookie, 'content-type': 'application/json', 'x-csrf-token': csrf.token },
+        expectedStatuses: [202],
+        body: JSON.stringify({
+          content: `Deployment ${demoDeployment} in namespace ${demoNamespace} has image ${brokenImage}. Read the exact Deployment with get_resource, patch container nginx to ${repairedImage} with patch_resource, and verify the repair.`,
+          toolAccessMode: 'read_write',
+          clientMessageId: 'local-smoke-repair-image-pull'
+        })
+      }
+    );
+    const payload = requireObject(parseJson('Kubernetes remediation message', text), 'Kubernetes remediation message');
+    if (!payload.run_id) throw new Error('Kubernetes remediation message response missing run_id');
+    return payload;
+  });
+
+  const approval = await waitFor('Kubernetes remediation patch approval', async () => {
+    const { text } = await request(
+      'Kubernetes remediation approvals',
+      config.consoleHost,
+      `/api/v1/runs/${remediationRun.run_id}/approvals`,
+      { headers: { cookie } }
+    );
+    const approvals = requireListItems(parseJson('Kubernetes remediation approvals', text), 'Kubernetes remediation approvals');
+    const pending = approvals.find((item) => item.status === 'pending' && item.toolName === 'patch_resource');
+    if (!pending) throw new Error('pending patch_resource approval not created yet');
+    if (pending.arguments?.name !== demoDeployment || pending.arguments?.namespace !== demoNamespace) {
+      throw new Error('patch_resource approval targeted the wrong Kubernetes resource');
+    }
+    if (typeof pending.arguments?.expected_uid !== 'string' || pending.arguments.expected_uid.length === 0) {
+      throw new Error('patch_resource approval is missing the UID obtained by the guarded resource read');
+    }
+    const imageChange = pending.arguments?.changes?.find((change) => change.type === 'set_image');
+    if (imageChange?.container !== 'nginx' || imageChange?.expected_image !== brokenImage || imageChange?.image !== repairedImage) {
+      throw new Error('patch_resource approval does not contain the expected guarded image change');
+    }
+    return pending;
+  });
+
+  await request(
+    'approve Kubernetes remediation patch',
+    config.consoleHost,
+    `/api/v1/runs/${remediationRun.run_id}/approvals/${approval.id}/decision`,
+    {
+      method: 'POST',
+      headers: { cookie: csrf.cookie, 'content-type': 'application/json', 'x-csrf-token': csrf.token },
+      body: JSON.stringify({ decision: 'approved' })
+    }
+  );
+
+  await waitFor('Kubernetes remediation run completed', async () => {
+    const { text } = await request(
+      'Kubernetes remediation run',
+      config.consoleHost,
+      `/api/v1/runs/${remediationRun.run_id}`,
+      { headers: { cookie } }
+    );
+    const payload = requireObject(parseJson('Kubernetes remediation run', text), 'Kubernetes remediation run');
+    if (payload.status !== 'completed') throw new Error(`Kubernetes remediation run is ${payload.status}`);
+    if (payload.toolAccessMode !== 'read_write') throw new Error(`Kubernetes remediation run toolAccessMode is ${payload.toolAccessMode}`);
+  });
+
+  await waitFor('Kubernetes remediation patch execution succeeded', async () => {
+    const { text } = await request(
+      'Kubernetes remediation approvals after execution',
+      config.consoleHost,
+      `/api/v1/runs/${remediationRun.run_id}/approvals`,
+      { headers: { cookie } }
+    );
+    const approvals = requireListItems(
+      parseJson('Kubernetes remediation approvals after execution', text),
+      'Kubernetes remediation approvals after execution'
+    );
+    const executed = approvals.find((item) => item.id === approval.id);
+    if (executed?.status !== 'approved' || executed?.executionStatus !== 'succeeded' || executed?.toolResultIsError) {
+      throw new Error(`patch_resource execution is ${executed?.executionStatus || 'missing'}`);
+    }
+  });
+
+  await waitFor('Kubernetes remediation rollout healthy', async () => {
+    const deployment = requireObject(
+      parseJson(
+        'repaired demo deployment',
+        await kubectl('-n', demoNamespace, 'get', 'deployment', demoDeployment, '-o', 'json')
+      ),
+      'repaired demo deployment'
+    );
+    const image = deployment.spec?.template?.spec?.containers?.find((container) => container.name === 'nginx')?.image;
+    if (image !== repairedImage) throw new Error(`demo workload image is ${image}`);
+    if (deployment.status?.availableReplicas !== deployment.spec?.replicas) {
+      throw new Error('repaired demo Deployment is not fully available');
+    }
+  });
+}
 
 await waitFor('cluster target skills', async () => {
   const { text } = await request(

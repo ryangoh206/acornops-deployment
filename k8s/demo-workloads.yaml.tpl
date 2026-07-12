@@ -73,9 +73,7 @@ spec:
         app.kubernetes.io/name: acornops-demo-unhealthy
     spec:
       containers:
-        - name: crash
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - "echo 'Intentional failure for demo troubleshooting'; exit 1"
+        - name: nginx
+          # Intentionally misspelled so the demo starts in ImagePullBackOff and
+          # can be repaired by patching the owning Deployment.
+          image: nginx:1.27.4-alpnie

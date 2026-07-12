@@ -2,7 +2,7 @@ apiVersion: acornops.dev/v1alpha1
 kind: StackVersionMatrix
 metadata:
   name: acornops-stack
-  updatedAt: "2026-07-10"
+  updatedAt: "2026-07-13"
 
 stacks:
   - name: local-dev
@@ -26,7 +26,7 @@ stacks:
     description: Kubernetes platform stack deployed with the acornops-platform Helm chart.
     chart:
       acornopsPlatform: oci://ghcr.io/acornops/charts/acornops-platform:0.0.1-experimental.7
-      acornopsAgentK: oci://ghcr.io/acornops/charts/acornops-agentk:0.0.1-experimental.2
+      acornopsAgentK: oci://ghcr.io/acornops/charts/acornops-agentk:0.0.1-experimental.6
     components:
       managementConsole: ghcr.io/acornops/management-console:0.0.1-experimental.1
       controlPlane: ghcr.io/acornops/control-plane:0.0.1-experimental.2

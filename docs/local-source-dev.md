@@ -32,7 +32,7 @@ task local-up
 ```
 
 `local-up` always executes `llm-gateway-init` first (`alembic upgrade head` + seed) and then `control-plane-init` (`npm run db:migrate`) so local DB schemas stay aligned with service code.
-It also creates the local k3d cluster named by `LOCAL_K3D_CLUSTER_NAME` when `LOCAL_K3D_AUTO_CREATE=true`, then writes a dedicated kubeconfig for the `agentk` container and demo workload seeding.
+It also creates the local k3d cluster named by `LOCAL_K3D_CLUSTER_NAME` when `LOCAL_K3D_AUTO_CREATE=true`, then writes a dedicated kubeconfig for the `agentk` container and demo workload seeding. The seed includes a healthy nginx Deployment and an intentionally misspelled nginx image tag that starts in `ImagePullBackOff`; the latter is a repairable troubleshooting scenario for patching the owning Deployment to `nginx:1.27.4-alpine`.
 The Compose-managed local agents explicitly set `ACORNOPS_AGENT_ALLOW_INSECURE_TRANSPORT=true` because the local control plane uses plain HTTP/WebSocket transport inside the Docker network; production agent deployments must keep secure transport enabled.
 
 The local source overlay also starts `agentv` as `agentv`. It uses the seeded `LOCAL_VM_TARGET_ID` and `LOCAL_VM_AGENT_KEY` values, connects outbound to the control plane WebSocket, and runs the real AgentV process with mock Linux/systemd collectors. This gives local development a deterministic VM target without requiring a privileged host install.
@@ -53,4 +53,4 @@ task local-reset
 
 ## Smoke Coverage
 
-`task local-smoke` verifies the seeded Kubernetes cluster and the seeded Linux VM target. The VM checks wait for the agent to come online, confirm snapshot-backed resources, durable issue endpoints, metrics, and journald logs, load VM MCP server registrations, and complete a read-only target-scoped troubleshooting run with a VM tool call. For providerless smoke, bring the stack up with `LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES=true task local-up`; otherwise provide a real key for the configured default provider.
+`task local-smoke` verifies the seeded Kubernetes cluster and the seeded Linux VM target. It resets the repairable Kubernetes Deployment to the misspelled image, drives an assistant run through `get_resource`, `patch_resource`, approval, and a healthy rollout, then performs the VM checks for snapshot-backed resources, durable issues, metrics, journald logs, MCP registrations, and a read-only troubleshooting tool call. Set `ACORNOPS_SMOKE_RUN_REMEDIATION=false` only when intentionally skipping the local write regression. For providerless smoke, bring the stack up with `LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES=true task local-up`; otherwise provide a real key for the configured default provider.

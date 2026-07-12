@@ -200,7 +200,12 @@ proxy at `http://127.0.0.1:8088` and sends Host headers for
 hosts. It refuses non-local endpoints unless `ACORNOPS_SMOKE_ALLOW_NON_LOCAL=true`
 is set deliberately. It checks the console app shell, same-origin `/api`
 routing, service readiness, dev login, workspace/target seed data, and public
-API host JWKS routing.
+API host JWKS routing. It also resets the local repairable demo Deployment to
+its misspelled image, drives a read-write assistant run through
+`get_resource`, `patch_resource`, operator approval, and rollout verification,
+then checks the Deployment is healthy. Set
+`ACORNOPS_SMOKE_RUN_REMEDIATION=false` only when intentionally skipping this
+local mutation coverage.
 
 4. Stop while preserving data:
 

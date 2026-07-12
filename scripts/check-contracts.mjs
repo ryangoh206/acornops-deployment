@@ -110,6 +110,8 @@ const agentDeploy = readFileSync(path.join(root, 'scripts/agent-deploy.sh'), 'ut
 const localUp = readFileSync(path.join(root, 'scripts/local-up.sh'), 'utf8');
 const localCompose = readFileSync(path.join(root, 'compose/local/compose.source.yaml'), 'utf8');
 const taskfile = readFileSync(path.join(root, 'Taskfile.yml'), 'utf8');
+const demoWorkloads = readFileSync(path.join(root, 'k8s/demo-workloads.yaml.tpl'), 'utf8');
+const localSmoke = readFileSync(path.join(root, 'scripts/local-smoke.mjs'), 'utf8');
 expect(!agentDeploy.includes('ACORNOPS_TARGET_ID'), 'Deployment agentk env should not expose a separate target id');
 expect(agentDeploy.includes('ACORNOPS_CLUSTER_ID'), 'Deployment agentk env should expose ACORNOPS_CLUSTER_ID');
 expect(localCompose.includes('ACORNOPS_CLUSTER_ID'), 'Local agentk env should expose ACORNOPS_CLUSTER_ID');
@@ -150,6 +152,17 @@ expect(
   localUp.includes('up -d --force-recreate --no-deps agentk agentv edge-proxy'),
   'local-up.sh should refresh local agents and edge-proxy after recreating upstream containers'
 );
+expect(
+  demoWorkloads.includes('image: nginx:1.27.4-alpnie'),
+  'Local demo workloads should include the repairable misspelled nginx image scenario'
+);
+expect(
+  !demoWorkloads.includes("exit 1"),
+  'Local demo workloads should not use a permanently crashing command that cannot be repaired by correcting its image'
+);
+for (const marker of ['acornops-demo-unhealthy', 'get_resource', 'patch_resource', "decision: 'approved'", 'availableReplicas']) {
+  expect(localSmoke.includes(marker), `Local smoke should preserve remediation marker ${marker}`);
+}
 
 const repoManifests = {
   'control-plane': 'control-plane/docs/contracts/manifest.json',

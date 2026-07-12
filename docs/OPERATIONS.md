@@ -318,4 +318,8 @@ DNS. It refuses non-local endpoints unless explicitly overridden. Use it after
 `task local-up` to verify edge routing, service readiness, same-origin API auth,
 seeded workspace/target API paths, VM inventory/issues/metrics/logs, VM MCP
 server registration, and a completed read-only VM troubleshooting run with a VM
-tool call. It does not touch production.
+tool call. It also resets the local `acornops-demo-unhealthy` Deployment to the
+seeded bad image, requires the assistant to read and patch the exact Deployment,
+approves the pending `patch_resource` call, and verifies a healthy rollout. Set
+`ACORNOPS_SMOKE_RUN_REMEDIATION=false` to skip that mutation scenario. It does
+not touch production.
