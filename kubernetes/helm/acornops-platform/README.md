@@ -44,6 +44,8 @@ The chart values are organized by operator concern:
 - `internalAuth`: gateway token claims and signing-key metadata
 - `networkPolicies`: ingress, DNS, public egress, Postgres, Redis, Vault, and per-component extra egress
 - `components`: workload and component-local settings for management-console, control-plane, execution-engine, and llm-gateway
+- `components.llmGateway.providerBaseUrls`: optional deployment-wide OpenAI,
+  Anthropic, and Gemini native API base URL overrides
 
 Control-plane HA requires external Redis for agent ownership, cross-pod
 JSON-RPC command routing, run event fanout, and renewed scheduler leases. The

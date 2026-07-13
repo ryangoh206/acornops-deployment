@@ -700,6 +700,16 @@
                 "maxRequestBodyBytes": { "type": "integer", "minimum": 1 },
                 "secretsBackend": { "type": "string", "enum": ["database", "vault"] },
                 "secretsCacheTtlSeconds": { "type": "integer", "minimum": 0 },
+                "providerBaseUrls": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "openai": { "type": "string" },
+                    "anthropic": { "type": "string" },
+                    "gemini": { "type": "string" }
+                  },
+                  "required": ["openai", "anthropic", "gemini"]
+                },
                 "auth": {
                   "type": "object",
                   "additionalProperties": false,
@@ -836,6 +846,7 @@
         "locales": { "type": "object" },
         "apiDocsEnabled": { "type": "boolean" },
         "logLevel": { "type": "string" },
+        "providerBaseUrls": { "type": "object" },
         "trustProxy": { "type": ["string", "boolean", "integer"] },
         "terminationGracePeriodSeconds": { "type": "integer" },
         "corsOrigin": { "type": "string" },

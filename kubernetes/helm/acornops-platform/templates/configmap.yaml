@@ -159,6 +159,9 @@ data:
   MAX_REQUEST_BODY_BYTES: {{ .Values.components.llmGateway.maxRequestBodyBytes | int | quote }}
   SECRETS_BACKEND: {{ .Values.components.llmGateway.secretsBackend | quote }}
   SECRETS_CACHE_TTL_SEC: {{ .Values.components.llmGateway.secretsCacheTtlSeconds | quote }}
+  LLM_PROVIDER_OPENAI_BASE_URL: {{ .Values.components.llmGateway.providerBaseUrls.openai | quote }}
+  LLM_PROVIDER_ANTHROPIC_BASE_URL: {{ .Values.components.llmGateway.providerBaseUrls.anthropic | quote }}
+  LLM_PROVIDER_GEMINI_BASE_URL: {{ .Values.components.llmGateway.providerBaseUrls.gemini | quote }}
   AUTH_JWKS_URL: {{ printf "%s/api/v1/auth/jwks.json" (include "acornops-platform.controlPlaneInternalUrl" .) | quote }}
   BUILTIN_MCP_SERVER_NAME: {{ .Values.agent.builtinMcpServer.name | quote }}
   BUILTIN_MCP_SERVER_URL: {{ default (printf "%s/internal/v1/mcp" (include "acornops-platform.controlPlaneInternalUrl" .)) .Values.agent.builtinMcpServer.url | quote }}

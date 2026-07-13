@@ -513,6 +513,10 @@ components:
     maxRequestBodyBytes: 1000000
     secretsBackend: database
     secretsCacheTtlSeconds: 0
+    providerBaseUrls:
+      openai: ""
+      anthropic: ""
+      gemini: ""
     auth:
       issuer: llm-gateway
       audience: execution-gateway
