@@ -22,6 +22,8 @@ and cache endpoints through the existing Secret configured by
 - API docs: disabled
 - auth: OIDC plus username/password login, with signup disabled and password reset enabled by default
 - write confirmations: required by default for write-capable agent tools
+- write confirmation timeout: 900 seconds
+- automation runtime: `off` by default for staged production rollout
 - public Ingress: `console.acornops.dev/` for the management console and `api.acornops.dev/api` for the control-plane API
 - public docs: `docs.acornops.dev/` is hosted by Mintlify and is not rendered by this chart
 - migration Jobs: enabled as Helm pre-install/pre-upgrade hooks
@@ -40,6 +42,7 @@ The chart values are organized by operator concern:
   additional CA trust for a private OIDC issuer
 - `ai`: default provider/model policy
 - `agent`: control-plane defaults for agent routing, runtime limits, and agent Helm installs
+- `automation`: durable runtime mode, canary workspace allow-list, and worker poll interval
 - `internalTransport.tls`: optional operator-supplied internal HTTPS/mTLS for service-to-service traffic
 - `internalAuth`: gateway token claims and signing-key metadata
 - `networkPolicies`: ingress, DNS, public egress, Postgres, Redis, Vault, and per-component extra egress

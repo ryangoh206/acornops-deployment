@@ -19,6 +19,9 @@ data:
   CONTROL_PLANE_DISTRIBUTED_ROUTING_ENABLED: {{ .Values.agent.routing.distributedEnabled | quote }}
   CONTROL_PLANE_AGENT_OWNER_TTL_SECONDS: {{ .Values.agent.routing.ownerTtlSeconds | quote }}
   CONTROL_PLANE_AGENT_SNAPSHOT_INTERVAL_SECONDS: {{ .Values.agent.routing.snapshotIntervalSeconds | quote }}
+  AUTOMATION_RUNTIME_MODE: {{ .Values.automation.runtimeMode | quote }}
+  AUTOMATION_CANARY_WORKSPACE_IDS: {{ .Values.automation.canaryWorkspaceIds | quote }}
+  AUTOMATION_WORKER_INTERVAL_MS: {{ .Values.automation.workerIntervalMs | quote }}
   CORS_ORIGIN: {{ default (include "acornops-platform.managementConsoleUrl" .) .Values.components.controlPlane.corsOrigin | quote }}
   SESSION_COOKIE_NAME: {{ .Values.auth.session.cookieName | quote }}
   SESSION_MAX_AGE_SECONDS: {{ .Values.auth.session.maxAgeSeconds | quote }}

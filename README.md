@@ -150,7 +150,9 @@ The production baseline runs the management console, control-plane, execution-en
 
 Deployment defaults use OpenAI with `gpt-5.5`; OpenAI 4.x models are not in the default allow list. Workspace reasoning summaries default to `auto` when enabled by deployment policy.
 
-Write confirmations for agent write tools are enabled by default in the platform chart through `agent.runtime.writeConfirmationRequired` and `agent.runtime.writeConfirmationTimeoutSeconds`, which render to `AGENT_WRITE_CONFIRMATION_REQUIRED` and `AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`. The setting is the deployment default; clusters can inherit it or set a per-cluster override in the control plane.
+Write confirmations for Agent, Workflow, and target write tools are enabled by default in the platform chart through `agent.runtime.writeConfirmationRequired` and `agent.runtime.writeConfirmationTimeoutSeconds`, which render to `AGENT_WRITE_CONFIRMATION_REQUIRED` and `AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`. The production timeout is 900 seconds. The setting is the deployment default; clusters can inherit it or set a per-cluster override in the control plane.
+
+The durable automation runtime is controlled by `automation.runtimeMode`, `automation.canaryWorkspaceIds`, and `automation.workerIntervalMs`. Production starts in `off`; apply migrations and verify template backfill before progressing through `shadow`, `canary`, and `on`. Load `observability/prometheus/alerts/control-plane-automation.rules.yaml` into the environment's Prometheus-compatible rule evaluator.
 
 The per-cluster agent rollout remains separate. Agent settings for the Kubernetes track live in `env/k8s/.env.agent`.
 

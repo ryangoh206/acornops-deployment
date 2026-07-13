@@ -17,6 +17,12 @@ platform:
   # Public browser URL for the management console.
   consoleUrl: https://console.acornops.dev
 
+automation:
+  # off, shadow, canary, or on. Keep off until migrations/backfill complete.
+  runtimeMode: "off"
+  canaryWorkspaceIds: ""
+  workerIntervalMs: 1000
+
 exposure:
   ingress:
     # Whether this chart renders a Kubernetes Ingress for public HTTP routes.
@@ -200,7 +206,7 @@ agent:
     toolDefaultTimeoutMs: 10000
     # Require explicit user approval before write-capable agent tools execute.
     writeConfirmationRequired: true
-    writeConfirmationTimeoutSeconds: 300
+    writeConfirmationTimeoutSeconds: 900
   helm:
     # Defaults used when the control plane creates workload-cluster agent installs.
     releaseName: acornops-agent

@@ -1,0 +1,87 @@
+groups:
+  - name: control-plane-automation
+    rules:
+      - alert: AutomationDispatchBacklogOld
+        expr: control_plane_automation_runtime{resource="outbox_oldest_pending_age_seconds"} > 30
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Automation dispatch backlog exceeds the 30-second objective"
+          description: "At least one acknowledged Agent or Workflow dispatch has remained pending for more than 30 seconds."
+
+      - alert: AutomationDispatchNeedsReview
+        expr: control_plane_automation_runtime{resource="outbox",state="needs_review"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Automation dispatches require review"
+          description: "Dispatch retry exhaustion left durable outbox entries in needs_review."
+
+      - alert: AutomationSchedulerLagHigh
+        expr: control_plane_automation_runtime{resource="scheduler_lag_seconds"} > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation scheduler lag exceeds 60 seconds"
+          description: "Due schedules or target events are not being claimed within the scheduler objective."
+
+      - alert: AutomationApprovalWaitStale
+        expr: control_plane_automation_runtime{resource="approval_oldest_pending_age_seconds"} > 900
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation approval exceeded its production timeout"
+          description: "A pending Agent or Workflow approval is older than 15 minutes and should have expired."
+
+      - alert: AutomationDuplicateClaimsElevated
+        expr: sum(rate(control_plane_automation_dispatch_total{outcome="stale_claim"}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation duplicate or stale claims are elevated"
+          description: "Workers are repeatedly claiming dispatch records whose logical run is no longer queued."
+
+      - alert: AutomationTriggerRejectionsElevated
+        expr: sum(rate(control_plane_automation_trigger_total{outcome=~"rejected_.*|retries_exhausted"}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation trigger rejections are elevated"
+          description: "Signed webhooks, schedules, or target events are being rejected or exhausting delivery retries."
+
+      - alert: AutomationMcpFailuresElevated
+        expr: sum(rate(control_plane_automation_mcp_failures_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation MCP dependency failures are elevated"
+          description: "Automation template readiness or tool discovery is failing against configured MCP dependencies."
+
+      - alert: AutomationPdfRenderFailures
+        expr: sum(rate(control_plane_automation_pdf_render_total{outcome="error",measure="renders"}[5m])) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "On-demand PDF rendering failures are elevated"
+          description: "Authorized incident-report downloads are failing during bounded PDF rendering."
+
+      - alert: AutomationTerminalFailuresElevated
+        expr: |
+          sum(rate(control_plane_automation_terminal_outcomes_total{status="failed"}[5m]))
+          /
+          clamp_min(sum(rate(control_plane_automation_terminal_outcomes_total[5m])), 1)
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Automation terminal failure rate is elevated"
+          description: "More than 10% of recently committed Agent and Workflow runs are failing."

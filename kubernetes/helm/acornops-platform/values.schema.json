@@ -22,6 +22,15 @@
         "consoleUrl": { "type": "string", "minLength": 1 }
       }
     },
+    "automation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runtimeMode": { "type": "string", "enum": ["off", "shadow", "canary", "on"] },
+        "canaryWorkspaceIds": { "type": "string" },
+        "workerIntervalMs": { "type": "integer", "minimum": 250 }
+      }
+    },
     "exposure": {
       "type": "object",
       "additionalProperties": false,
