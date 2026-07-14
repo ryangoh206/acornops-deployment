@@ -414,7 +414,21 @@
             "releaseName": { "type": "string", "minLength": 1 },
             "chartRef": { "type": "string", "minLength": 1 },
             "chartVersion": { "type": "string" },
-            "namespace": { "type": "string", "minLength": 1 }
+            "namespace": { "type": "string", "minLength": 1 },
+            "values": { "type": "object" },
+            "files": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "additionalCaBundle": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sourcePath": { "type": "string" }
+                  }
+                }
+              }
+            }
           }
         },
         "builtinMcpServer": {

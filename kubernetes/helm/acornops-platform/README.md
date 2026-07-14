@@ -201,6 +201,42 @@ Write confirmation defaults are controlled by:
 
 The default is confirmation required. Individual clusters can inherit this value or override it from the control plane. Required confirmations are enforced by the execution runtime before write tool execution; browser and external adapter UIs only submit approve/reject decisions.
 
+## Generated AgentK Install Defaults
+
+`agent.helm` controls the Helm command returned when a user connects a workload
+cluster. Air-gapped platforms can point both the chart and AgentK image at
+internal mirrors and can include an organization CA from the machine that runs
+the generated command:
+
+```yaml
+agent:
+  helm:
+    chartRef: oci://docker.artifact.internal.org/acornops/charts/acornops-agentk
+    chartVersion: 0.0.1-experimental.7
+    values:
+      image:
+        repository: docker.artifact.internal.org/ghcr.io/acornops/agentk
+        tag: 0.0.1-experimental.7
+        pullPolicy: IfNotPresent
+      imagePullSecrets:
+        - name: internal-registry
+    files:
+      additionalCaBundle:
+        sourcePath: /path/to/organization-ca.pem
+```
+
+Entries under `values` become safely quoted downstream `--set-json` arguments.
+The CA `sourcePath` becomes
+`--set-file config.tls.additionalCaBundle.inlinePem=<path>`; the path must exist
+on the operator machine executing the command, not in the control-plane pod.
+The AgentK chart creates and mounts a namespace-local ConfigMap for that public
+trust bundle.
+
+The control plane rejects overrides for generated identity, platform URL,
+namespace scope, agent-key source, and write-mode values. Do not place secrets
+directly under `values`; use supported Kubernetes Secret references such as
+`imagePullSecrets`.
+
 Target chat coordination warnings are controlled by `components.controlPlane.recentActivity.windowSeconds`, which renders to `TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS`. The default is `300` seconds.
 
 External integration account linking uses `EXTERNAL_INTEGRATION_CLIENTS_JSON`

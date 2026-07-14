@@ -216,6 +216,16 @@ agent:
     # Optional exact version. Leave empty to install the latest chart, including prereleases.
     chartVersion: ""
     namespace: acornops-agentk
+    # Literal downstream AgentK chart values added to generated install commands.
+    # Control-plane-owned identity, connection, namespace, and write-mode values
+    # are rejected.
+    values: {}
+    files:
+      additionalCaBundle:
+        # Path on the operator machine that runs the generated Helm command.
+        # When set, Helm reads this PEM bundle with --set-file and the AgentK
+        # chart manages the namespace-local trust ConfigMap.
+        sourcePath: ""
   builtinMcpServer:
     name: acornops-cluster-agent
     # Defaults to the in-cluster control-plane internal MCP endpoint when empty.

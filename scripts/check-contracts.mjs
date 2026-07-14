@@ -71,6 +71,15 @@ expect(
   chartSchema.properties?.agent?.properties?.helm?.properties?.chartVersion,
   'Chart schema should expose the optional AgentK chart version pin'
 );
+expect(
+  chartSchema.properties?.agent?.properties?.helm?.properties?.values,
+  'Chart schema should expose downstream AgentK chart values'
+);
+expect(
+  chartSchema.properties?.agent?.properties?.helm?.properties?.files?.properties
+    ?.additionalCaBundle?.properties?.sourcePath,
+  'Chart schema should expose the generated AgentK install CA source path'
+);
 const oidcAdditionalCaSchema =
   chartSchema.properties?.auth?.properties?.oidc?.properties?.tls?.properties
     ?.additionalCaBundle;
