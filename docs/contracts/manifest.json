@@ -131,8 +131,8 @@
       "ACORNOPS_AGENT_KEY"
     ],
     "agentKInstallHelmValues": [
-      "agent.helm.chartRef",
-      "agent.helm.chartVersion"
+      "targetAgents.agentk.helm.chartRef",
+      "targetAgents.agentk.helm.chartVersion"
     ],
     "agentVLocalEnv": [
       "ACORNOPS_AGENT_PLATFORM_URL",
@@ -143,7 +143,8 @@
       "ACORNOPS_VM_COLLECTOR_MODE",
       "ACORNOPS_VM_OS_FAMILY",
       "ACORNOPS_VM_SERVICE_MANAGER",
-      "ACORNOPS_VM_ALLOWED_LOG_SOURCES"
+      "ACORNOPS_VM_ALLOWED_LOG_UNITS",
+      "ACORNOPS_AGENT_WRITE_ENABLED"
     ],
     "localAgentInsecureTransportEnv": ["ACORNOPS_AGENT_ALLOW_INSECURE_TRANSPORT"],
     "localDeterministicLlmEnv": ["LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES"],

@@ -118,7 +118,7 @@ const renderedWithAgentPin = run('helm', [
   '--namespace',
   'acornops',
   '--set-string',
-  'agent.helm.chartVersion=0.0.1-experimental.4'
+  'targetAgents.agentk.helm.chartVersion=0.0.1-experimental.4'
 ]);
 const renderedWithAgentAirgapDefaults = run('helm', [
   'template',
@@ -127,44 +127,44 @@ const renderedWithAgentAirgapDefaults = run('helm', [
   '--namespace',
   'acornops',
   '--set-string',
-  'agent.helm.chartRef=oci://docker.artifact.internal.org/acornops/charts/acornops-agentk',
+  'targetAgents.agentk.helm.chartRef=oci://docker.artifact.internal.org/acornops/charts/acornops-agentk',
   '--set-string',
-  'agent.helm.values.image.repository=docker.artifact.internal.org/ghcr.io/acornops/agentk',
+  'targetAgents.agentk.helm.values.image.repository=docker.artifact.internal.org/ghcr.io/acornops/agentk',
   '--set-string',
-  `agent.helm.values.image.tag=${expectedAgentChart.version}`,
+  `targetAgents.agentk.helm.values.image.tag=${expectedAgentChart.version}`,
   '--set-string',
-  'agent.helm.files.additionalCaBundle.sourcePath=/opt/acornops/organization-ca.pem'
+  'targetAgents.agentk.helm.files.additionalCaBundle.sourcePath=/opt/acornops/organization-ca.pem'
 ]);
 for (const image of Object.values(expectedK8sImages)) {
   expect(rendered.includes(`image: "${image}"`), `platform chart should render ${image}`);
 }
 expect(
-  rendered.includes('AGENT_HELM_CHART_REF: "oci://ghcr.io/acornops/charts/acornops-agentk"'),
+  rendered.includes('AGENTK_HELM_CHART_REF: "oci://ghcr.io/acornops/charts/acornops-agentk"'),
   'platform chart should render the acornops-agentk chart reference'
 );
 expect(
-  rendered.includes('AGENT_HELM_CHART_VERSION: ""'),
+  rendered.includes('AGENTK_HELM_CHART_VERSION: ""'),
   'platform chart should leave the optional agentk chart version pin unset by default'
 );
 expect(
-  renderedWithAgentPin.includes('AGENT_HELM_CHART_VERSION: "0.0.1-experimental.4"'),
+  renderedWithAgentPin.includes('AGENTK_HELM_CHART_VERSION: "0.0.1-experimental.4"'),
   'platform chart should render an explicit agentk chart version pin when configured'
 );
 expect(
   renderedWithAgentAirgapDefaults.includes(
-    'AGENT_HELM_CHART_REF: "oci://docker.artifact.internal.org/acornops/charts/acornops-agentk"'
+    'AGENTK_HELM_CHART_REF: "oci://docker.artifact.internal.org/acornops/charts/acornops-agentk"'
   ),
   'platform chart should render an internal AgentK chart reference'
 );
 expect(
   renderedWithAgentAirgapDefaults.includes(
-    `AGENT_HELM_VALUES_JSON: "{\\"image\\":{\\"repository\\":\\"docker.artifact.internal.org/ghcr.io/acornops/agentk\\",\\"tag\\":\\"${expectedAgentChart.version}\\"}}"`
+    `AGENTK_HELM_VALUES_JSON: "{\\"image\\":{\\"repository\\":\\"docker.artifact.internal.org/ghcr.io/acornops/agentk\\",\\"tag\\":\\"${expectedAgentChart.version}\\"}}"`
   ),
   'platform chart should serialize downstream AgentK values as JSON'
 );
 expect(
   renderedWithAgentAirgapDefaults.includes(
-    'AGENT_HELM_ADDITIONAL_CA_FILE_PATH: "/opt/acornops/organization-ca.pem"'
+    'AGENTK_HELM_ADDITIONAL_CA_FILE_PATH: "/opt/acornops/organization-ca.pem"'
   ),
   'platform chart should render the generated AgentK install CA source path'
 );

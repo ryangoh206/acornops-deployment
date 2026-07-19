@@ -41,7 +41,10 @@ The chart values are organized by operator concern:
 - `global.trust.additionalCaBundle`: default existing ConfigMap or Secret with
   additive CA trust for server-side platform components
 - `ai`: default provider/model policy
-- `agent`: control-plane defaults for agent routing, runtime limits, and agent Helm installs
+- `agentGateway`: shared control-plane connectivity for AgentK and AgentV
+- `assistantRuntime`: AI assistant budgets, limits, and write-approval defaults
+- `targetAgents.agentk.helm`: defaults for generated AgentK install commands
+- `builtinTargetMcp`: shared AgentK and AgentV target-tool bridge identity
 - `automation`: durable runtime mode, canary workspace allow-list, and worker poll interval
 - `internalTransport.tls`: optional operator-supplied internal HTTPS/mTLS for service-to-service traffic
 - `internalAuth`: gateway token claims and signing-key metadata
@@ -241,33 +244,34 @@ the Service `port` value in a policy override.
 
 Write confirmation defaults are controlled by:
 
-- `agent.runtime.writeConfirmationRequired` -> `AGENT_WRITE_CONFIRMATION_REQUIRED`
-- `agent.runtime.writeConfirmationTimeoutSeconds` -> `AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`
+- `assistantRuntime.writeConfirmationRequired` -> `ASSISTANT_WRITE_CONFIRMATION_REQUIRED`
+- `assistantRuntime.writeConfirmationTimeoutSeconds` -> `ASSISTANT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`
 
 The default is confirmation required. Individual clusters can inherit this value or override it from the control plane. Required confirmations are enforced by the execution runtime before write tool execution; browser and external adapter UIs only submit approve/reject decisions.
 
 ## Generated AgentK Install Defaults
 
-`agent.helm` controls the Helm command returned when a user connects a workload
-cluster. Air-gapped platforms can point both the chart and AgentK image at
+`targetAgents.agentk.helm` controls the Helm command returned when a user
+connects a Kubernetes cluster. Air-gapped platforms can point both the chart and AgentK image at
 internal mirrors and can include an organization CA from the machine that runs
 the generated command:
 
 ```yaml
-agent:
-  helm:
-    chartRef: oci://docker.artifact.internal.org/acornops/charts/acornops-agentk
-    chartVersion: 0.0.1-experimental.9
-    values:
-      image:
-        repository: docker.artifact.internal.org/ghcr.io/acornops/agentk
-        tag: 0.0.1-experimental.9
-        pullPolicy: IfNotPresent
-      imagePullSecrets:
-        - name: internal-registry
-    files:
-      additionalCaBundle:
-        sourcePath: /path/to/organization-ca.pem
+targetAgents:
+  agentk:
+    helm:
+      chartRef: oci://docker.artifact.internal.org/acornops/charts/acornops-agentk
+      chartVersion: 0.0.1-experimental.9
+      values:
+        image:
+          repository: docker.artifact.internal.org/ghcr.io/acornops/agentk
+          tag: 0.0.1-experimental.9
+          pullPolicy: IfNotPresent
+        imagePullSecrets:
+          - name: internal-registry
+      files:
+        additionalCaBundle:
+          sourcePath: /path/to/organization-ca.pem
 ```
 
 Entries under `values` become safely quoted downstream `--set-json` arguments.

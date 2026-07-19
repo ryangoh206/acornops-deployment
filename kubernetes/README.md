@@ -240,7 +240,7 @@ Troubleshooting:
   certificate.
 - Readiness failures after enabling TLS usually point to missing health ports,
   incorrect Secret keys, or rejected internal HTTPS dependency URLs.
-- Built-in MCP bridge failures can occur if `agent.builtinMcpServer.url` is
+- Built-in MCP bridge failures can occur if `builtinTargetMcp.url` is
   overridden to a URL that does not match the internal control-plane listener.
 
 Docker Compose internal mTLS is not implemented by this Helm-focused setting.

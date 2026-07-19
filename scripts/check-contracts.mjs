@@ -43,7 +43,7 @@ expect(
 );
 expect(
   stable(deploymentManifest.contractSurfaces?.agentKInstallHelmValues) ===
-    stable(['agent.helm.chartRef', 'agent.helm.chartVersion']),
+    stable(['targetAgents.agentk.helm.chartRef', 'targetAgents.agentk.helm.chartVersion']),
   'Deployment manifest should expose the exact agentk install Helm values contract'
 );
 expect(
@@ -99,17 +99,24 @@ const chartSchema = readJson(
   path.join(root, 'kubernetes/helm/acornops-platform/values.schema.json')
 );
 expect(
-  chartSchema.properties?.agent?.properties?.helm?.properties?.chartVersion,
+  chartSchema.properties?.targetAgents?.properties?.agentk?.properties?.helm?.properties?.chartVersion,
   'Chart schema should expose the optional AgentK chart version pin'
 );
 expect(
-  chartSchema.properties?.agent?.properties?.helm?.properties?.values,
+  chartSchema.properties?.targetAgents?.properties?.agentk?.properties?.helm?.properties?.values,
   'Chart schema should expose downstream AgentK chart values'
 );
 expect(
-  chartSchema.properties?.agent?.properties?.helm?.properties?.files?.properties
+  chartSchema.properties?.targetAgents?.properties?.agentk?.properties?.helm?.properties?.files?.properties
     ?.additionalCaBundle?.properties?.sourcePath,
   'Chart schema should expose the generated AgentK install CA source path'
+);
+expect(
+  chartSchema.properties?.agentGateway &&
+    chartSchema.properties?.assistantRuntime &&
+    chartSchema.properties?.builtinTargetMcp &&
+    !chartSchema.properties?.agent,
+  'Chart schema should keep target connectivity, assistant policy, target installs, and target MCP identity unambiguous'
 );
 const additionalCaSchema = chartSchema.definitions?.additionalCaBundle;
 expect(
@@ -262,7 +269,8 @@ expect(
   localCompose.includes('ACORNOPS_AGENT_PLATFORM_URL: http://control-plane:8081'),
   'Local agentv should use the HTTP control-plane base URL expected by agentv'
 );
-expect(localCompose.includes('ACORNOPS_VM_ALLOWED_LOG_SOURCES'), 'Local agentv env should expose VM log-source configuration');
+expect(localCompose.includes('ACORNOPS_VM_ALLOWED_LOG_UNITS'), 'Local agentv env should expose exact journald unit configuration');
+expect(localCompose.includes('ACORNOPS_AGENT_WRITE_ENABLED: "false"'), 'Local container AgentV must remain read-only');
 expect(localCompose.includes('LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES'), 'Local llm-gateway env should expose opt-in deterministic dev responses for smoke tests');
 expect(
   localUp.includes('ensure_local_gateway_signing_key') && localUp.includes('openssl genpkey'),
@@ -294,6 +302,10 @@ expect(
   'local-up.sh should refresh local agents and edge-proxy after recreating upstream containers'
 );
 expect(
+  localCompose.includes('../../../agentv/src:/app/src') && !localCompose.includes('agentv-node-modules:/app/node_modules'),
+  'Local AgentV should hot-reload source without masking image-built dependencies and its Linux native addon'
+);
+expect(
   demoWorkloads.includes('image: nginx:1.27.4-alpnie'),
   'Local demo workloads should include the repairable misspelled nginx image scenario'
 );
@@ -305,6 +317,7 @@ for (const marker of ['acornops-demo-unhealthy', 'get_resource', 'patch_resource
   expect(localSmoke.includes(marker), `Local smoke should preserve remediation marker ${marker}`);
 }
 expect(localSmoke.includes('ACORNOPS_SMOKE_REMEDIATION_ONLY'), 'Local smoke should support focused remediation regression runs');
+expect(localSmoke.includes('ACORNOPS_SMOKE_AGENTV_ONLY'), 'Local smoke should support focused AgentV cross-service runs');
 expect(localSmoke.includes('ACORNOPS_SMOKE_REMEDIATION_RUNS'), 'Local smoke should support the 20-run remediation release gate');
 for (const marker of [
   'KubernetesRemediationVerificationFailedOrMissing',

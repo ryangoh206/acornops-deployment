@@ -99,22 +99,26 @@ ai:
   allowedProviderModels: "openai:gpt-5.5|gpt-5.4|gpt-5.4-mini|gpt-5.4-nano|gpt-5|gpt-5-mini|gpt-5-nano;anthropic:claude-fable-5|claude-opus-4-8|claude-sonnet-4-6|claude-haiku-4-5;gemini:gemini-3.5-flash|gemini-3.5-flash-lite|gemini-3.1-pro|gemini-3.1-flash|gemini-3.1-flash-lite|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite|gemini-2.0-flash|gemini-2.0-flash-lite"
   gatewayTimeoutMs: 120000
 
-agent:
-  routing:
-    distributedEnabled: true
+agentGateway:
+  distributedRouting:
+    enabled: true
     ownerTtlSeconds: 90
-    snapshotIntervalSeconds: 60
-    maxWebSocketPayloadBytes: 3145728
-  runtime:
-    contextMaxTokens: 120000
-    budgetCents: 25
-    maxRuntimeMs: 600000
-    writeConfirmationRequired: true
-    writeConfirmationTimeoutSeconds: 900
-  helm:
-    releaseName: acornops-agentk
-    chartRef: oci://ghcr.io/acornops/charts/acornops-agentk
-    namespace: acornops-agentk
+  snapshotIntervalSeconds: 60
+  maxWebSocketPayloadBytes: 3145728
+
+assistantRuntime:
+  contextMaxTokens: 120000
+  budgetCents: 25
+  maxRuntimeMs: 600000
+  writeConfirmationRequired: true
+  writeConfirmationTimeoutSeconds: 900
+
+targetAgents:
+  agentk:
+    helm:
+      releaseName: acornops-agentk
+      chartRef: oci://ghcr.io/acornops/charts/acornops-agentk
+      namespace: acornops-agentk
 
 internalTransport:
   tls:

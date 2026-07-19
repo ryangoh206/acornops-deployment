@@ -104,6 +104,14 @@ tasks:
     cmds:
       - node scripts/local-smoke.mjs
 
+  local-agentv-smoke:
+    desc: Run the focused local cross-service AgentV and VM smoke
+    env:
+      ACORNOPS_SMOKE_AGENTV_ONLY: 'true'
+      ACORNOPS_SMOKE_RUN_REMEDIATION: 'false'
+    cmds:
+      - node scripts/local-smoke.mjs
+
   prod-up:
     desc: Deploy production stack
     cmds:

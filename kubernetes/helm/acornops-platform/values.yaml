@@ -189,48 +189,62 @@ adminApi:
     existingSecretName: ""
     tokensJsonKey: CONTROL_PLANE_ADMIN_TOKENS_JSON
 
-agent:
-  routing:
-    # Enables HA agent ownership and cross-pod routing through external Redis.
-    distributedEnabled: true
+# Shared control-plane gateway settings for both AgentK and AgentV connections.
+# This does not configure either target-side agent daemon.
+agentGateway:
+  distributedRouting:
+    # Enables HA target ownership and cross-pod routing through external Redis.
+    enabled: true
     ownerTtlSeconds: 90
-    snapshotIntervalSeconds: 60
-    # Accommodates the 2 MiB complete tool result plus its MCP/WebSocket envelope.
-    maxWebSocketPayloadBytes: 3145728
-  runtime:
-    contextMaxTokens: 120000
-    budgetCents: 25
-    temperature: "0.2"
-    maxRuntimeMs: 600000
-    maxSteps: 16
-    maxToolCalls: 24
-    maxDuplicateToolCalls: 2
-    toolDefaultTimeoutMs: 10000
-    # Require explicit user approval before write-capable agent tools execute.
-    writeConfirmationRequired: true
-    writeConfirmationTimeoutSeconds: 900
-  helm:
-    # Defaults used when the control plane creates workload-cluster agent installs.
-    releaseName: acornops-agentk
-    chartRef: oci://ghcr.io/acornops/charts/acornops-agentk
-    # Optional exact version. Leave empty to install the latest chart, including prereleases.
-    chartVersion: ""
-    namespace: acornops-agentk
-    # Literal downstream AgentK chart values added to generated install commands.
-    # Control-plane-owned identity, connection, namespace, and write-mode values
-    # are rejected.
-    values: {}
-    files:
-      additionalCaBundle:
-        # Path on the operator machine that runs the generated Helm command.
-        # When set, Helm reads this PEM bundle with --set-file and the AgentK
-        # chart manages the namespace-local trust ConfigMap.
-        sourcePath: ""
-  builtinMcpServer:
-    name: acornops-cluster-agent
-    # Defaults to the in-cluster control-plane internal MCP endpoint when empty.
-    url: ""
-    displayName: AcornOps Kubernetes Tools
+  snapshotIntervalSeconds: 60
+  # Accommodates the 2 MiB complete tool result plus its MCP/WebSocket envelope.
+  maxWebSocketPayloadBytes: 3145728
+
+# Default limits and approval policy for AI assistant runs in the control plane.
+# These settings are independent of the AgentK and AgentV daemon configuration.
+assistantRuntime:
+  # Optional override. Leave empty to use the control plane's production default.
+  systemInstruction: ""
+  contextMaxTokens: 120000
+  budgetCents: 25
+  temperature: "0.2"
+  maxRuntimeMs: 600000
+  maxSteps: 16
+  maxToolCalls: 24
+  maxDuplicateToolCalls: 2
+  toolDefaultTimeoutMs: 10000
+  # Require explicit user approval before write-capable tools execute.
+  writeConfirmationRequired: true
+  writeConfirmationTimeoutSeconds: 900
+
+# Target-specific installation settings. AgentV is installed on VMs with its
+# systemd archive and therefore intentionally has no Helm configuration here.
+targetAgents:
+  agentk:
+    helm:
+      # Defaults used to generate AgentK install commands for Kubernetes targets.
+      releaseName: acornops-agentk
+      chartRef: oci://ghcr.io/acornops/charts/acornops-agentk
+      # Optional exact version. Leave empty to install the latest chart, including prereleases.
+      chartVersion: ""
+      namespace: acornops-agentk
+      # Literal downstream AgentK chart values added to generated install commands.
+      # Control-plane-owned identity, connection, namespace, and write-mode values
+      # are rejected.
+      values: {}
+      files:
+        additionalCaBundle:
+          # Path on the operator machine that runs the generated Helm command.
+          # When set, Helm reads this PEM bundle with --set-file and the AgentK
+          # chart manages the namespace-local trust ConfigMap.
+          sourcePath: ""
+
+# Internal MCP identity shared by AgentK and AgentV target tools.
+builtinTargetMcp:
+  name: acornops-target-agent
+  # Defaults to the in-cluster control-plane internal MCP endpoint when empty.
+  url: ""
+  displayName: AcornOps Target Tools
 
 internalTransport:
   tls:

@@ -153,7 +153,7 @@ The production baseline runs the management console, control-plane, execution-en
 
 Deployment defaults use OpenAI with `gpt-5.5`; OpenAI 4.x models are not in the default allow list. Workspace reasoning summaries default to `auto` when enabled by deployment policy.
 
-Write confirmations for Agent, Workflow, and target write tools are enabled by default in the platform chart through `agent.runtime.writeConfirmationRequired` and `agent.runtime.writeConfirmationTimeoutSeconds`, which render to `AGENT_WRITE_CONFIRMATION_REQUIRED` and `AGENT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`. The production timeout is 900 seconds. The setting is the deployment default; clusters can inherit it or set a per-cluster override in the control plane.
+Write confirmations for Agent, Workflow, and target write tools are enabled by default in the platform chart through `assistantRuntime.writeConfirmationRequired` and `assistantRuntime.writeConfirmationTimeoutSeconds`, which render to `ASSISTANT_WRITE_CONFIRMATION_REQUIRED` and `ASSISTANT_WRITE_CONFIRMATION_TIMEOUT_SECONDS`. The production timeout is 900 seconds. The setting is the deployment default; clusters can inherit it or set a per-cluster override in the control plane.
 
 The durable automation runtime is controlled by `automation.runtimeMode`, `automation.canaryWorkspaceIds`, and `automation.workerIntervalMs`. Production starts in `off`; apply migrations and verify template backfill before progressing through `shadow`, `canary`, and `on`. Load `observability/prometheus/alerts/control-plane-automation.rules.yaml` into the environment's Prometheus-compatible rule evaluator.
 
@@ -234,7 +234,7 @@ Notes:
 - set `LOCAL_K3D_AUTO_CREATE=false` to skip k3d bootstrap and use an existing kubeconfig instead
 - conversation history retention defaults to 30 days (`CONVERSATION_RETENTION_DAYS`)
 - recent target chat activity warnings default to 5 minutes (`TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS=300`)
-- AI agent behavior can be tuned from the deployment env with `AGENT_SYSTEM_INSTRUCTION`, `AGENT_CONTEXT_MAX_TOKENS`, `AGENT_BUDGET_CENTS`, `AGENT_LLM_TEMPERATURE`, `AGENT_MAX_RUNTIME_MS`, `AGENT_MAX_STEPS`, `AGENT_MAX_TOOL_CALLS`, `AGENT_MAX_DUPLICATE_TOOL_CALLS`, and `AGENT_TOOL_DEFAULT_TIMEOUT_MS`
+- AI agent behavior can be tuned from the deployment env with `ASSISTANT_SYSTEM_INSTRUCTION`, `ASSISTANT_CONTEXT_MAX_TOKENS`, `ASSISTANT_BUDGET_CENTS`, `ASSISTANT_LLM_TEMPERATURE`, `ASSISTANT_MAX_RUNTIME_MS`, `ASSISTANT_MAX_STEPS`, `ASSISTANT_MAX_TOOL_CALLS`, `ASSISTANT_MAX_DUPLICATE_TOOL_CALLS`, and `ASSISTANT_TOOL_DEFAULT_TIMEOUT_MS`
 
 ### Production (Docker-on-VM)
 

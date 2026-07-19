@@ -327,69 +327,82 @@
         }
       }
     },
-    "agent": {
+    "agentGateway": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "routing": {
+        "distributedRouting": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "distributedEnabled": { "type": "boolean" },
-            "ownerTtlSeconds": { "type": "integer", "minimum": 1 },
-            "snapshotIntervalSeconds": { "type": "integer", "minimum": 1 },
-            "maxWebSocketPayloadBytes": { "type": "integer", "minimum": 2162688, "maximum": 5242880 }
+            "enabled": { "type": "boolean" },
+            "ownerTtlSeconds": { "type": "integer", "minimum": 1 }
           }
         },
-        "runtime": {
+        "snapshotIntervalSeconds": { "type": "integer", "minimum": 1 },
+        "maxWebSocketPayloadBytes": { "type": "integer", "minimum": 2162688, "maximum": 5242880 }
+      }
+    },
+    "assistantRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "systemInstruction": { "type": "string" },
+        "contextMaxTokens": { "type": "integer", "minimum": 1 },
+        "budgetCents": { "type": "integer", "minimum": 0 },
+        "temperature": { "type": ["string", "number"] },
+        "maxRuntimeMs": { "type": "integer", "minimum": 1 },
+        "maxSteps": { "type": "integer", "minimum": 1 },
+        "maxToolCalls": { "type": "integer", "minimum": 1 },
+        "maxDuplicateToolCalls": { "type": "integer", "minimum": 0 },
+        "toolDefaultTimeoutMs": { "type": "integer", "minimum": 1 },
+        "writeConfirmationRequired": { "type": "boolean" },
+        "writeConfirmationTimeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "targetAgents": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agentk": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "contextMaxTokens": { "type": "integer", "minimum": 1 },
-            "budgetCents": { "type": "integer", "minimum": 0 },
-            "temperature": { "type": ["string", "number"] },
-            "maxRuntimeMs": { "type": "integer", "minimum": 1 },
-            "maxSteps": { "type": "integer", "minimum": 1 },
-            "maxToolCalls": { "type": "integer", "minimum": 1 },
-            "maxDuplicateToolCalls": { "type": "integer", "minimum": 0 },
-            "toolDefaultTimeoutMs": { "type": "integer", "minimum": 1 },
-            "writeConfirmationRequired": { "type": "boolean" },
-            "writeConfirmationTimeoutSeconds": { "type": "integer", "minimum": 1 }
-          }
-        },
-        "helm": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "releaseName": { "type": "string", "minLength": 1 },
-            "chartRef": { "type": "string", "minLength": 1 },
-            "chartVersion": { "type": "string" },
-            "namespace": { "type": "string", "minLength": 1 },
-            "values": { "type": "object" },
-            "files": {
+            "helm": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "additionalCaBundle": {
+                "releaseName": { "type": "string", "minLength": 1 },
+                "chartRef": { "type": "string", "minLength": 1 },
+                "chartVersion": { "type": "string" },
+                "namespace": { "type": "string", "minLength": 1 },
+                "values": { "type": "object" },
+                "files": {
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "sourcePath": { "type": "string" }
+                    "additionalCaBundle": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "sourcePath": { "type": "string" }
+                      }
+                    }
                   }
                 }
               }
             }
           }
-        },
-        "builtinMcpServer": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "name": { "type": "string", "minLength": 1 },
-            "url": { "type": "string" },
-            "displayName": { "type": "string", "minLength": 1 }
-          }
         }
+      }
+    },
+    "builtinTargetMcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string" },
+        "displayName": { "type": "string", "minLength": 1 }
       }
     },
     "internalAuth": {
