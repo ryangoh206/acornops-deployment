@@ -1,6 +1,8 @@
 {
   "repo": "deployment",
   "version": 1,
+  "executionContractVersion": 2,
+  "workflowSchemaEpoch": "workflow-v2-greenfield-1",
   "runtimeDependencies": [
     "management-console",
     "control-plane",
@@ -60,6 +62,10 @@
       "LLM_ALLOWED_REASONING_SUMMARY_MODES",
       "LLM_ALLOWED_REASONING_EFFORTS"
     ],
+    "workflowRuntimePolicyEnv": [
+      "AGENT_MAX_RUNTIME_MS",
+      "TARGET_CHAT_REPORT_RETENTION_DAYS"
+    ],
     "adminApiHelmValues": [
       "adminApi.enabled",
       "adminApi.ingress.enabled",
@@ -85,6 +91,10 @@
       "ai.reasoningSummariesEnabled",
       "ai.allowedReasoningSummaryModes",
       "ai.allowedReasoningEfforts"
+    ],
+    "workflowRuntimePolicyHelmValues": [
+      "agent.runtime.maxRuntimeMs",
+      "components.controlPlane.reportArtifacts.maxRetentionDays"
     ],
     "additionalCaHelmValues": [
       "global.trust.additionalCaBundle.configMapKeyRef.name",
@@ -147,7 +157,42 @@
       "ACORNOPS_AGENT_WRITE_ENABLED"
     ],
     "localAgentInsecureTransportEnv": ["ACORNOPS_AGENT_ALLOW_INSECURE_TRANSPORT"],
-    "localDeterministicLlmEnv": ["LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES"],
+    "starterAutomationProvisioning": {
+      "scope": "every workspace",
+      "developmentFixtureIndependent": true,
+      "seedDevelopmentDataPurpose": "optional local owner, workspace, Kubernetes target, target settings, and AgentK registration"
+    },
+    "agentCapabilityMigration": {
+      "mode": "greenfield_reset",
+      "preservesExistingData": false,
+      "preflightScript": "scripts/agent-capability-cutover-preflight.sh"
+    },
+    "catalogEnv": [
+      "CATALOG_OFFICIAL_REGISTRY_ENABLED",
+      "CATALOG_OFFICIAL_REGISTRY_URL",
+      "CATALOG_WORKSPACE_MANAGED_SOURCES_ENABLED",
+      "CATALOG_BOOTSTRAP_SOURCES_JSON"
+    ],
+    "mcpPatEnv": [
+      "REMOTE_MCP_ENABLED",
+      "MCP_CONNECTION_RATE_LIMIT_PER_WINDOW",
+      "RATE_LIMIT_WINDOW_SECONDS"
+    ],
+    "catalogHelmValues": [
+      "components.llmGateway.catalog.officialRegistryEnabled",
+      "components.llmGateway.catalog.officialRegistryUrl",
+      "components.llmGateway.catalog.allowWorkspaceManagedSources",
+      "components.llmGateway.catalog.bootstrapSources[].{workspaceId,displayName,baseUrl,networkRoute,adapterBasePath,enabled,auth.{type,headerName,secretKeyRef.{name,key}}}",
+      "components.llmGateway.mcpEgress.{allowedHosts,allowPrivateNetworks,allowLocalAddresses,caBundle}"
+    ],
+    "mcpPatHelmValues": [
+      "components.llmGateway.remoteMcp.enabled",
+      "components.llmGateway.rateLimits.mcpConnectionPerWindow"
+    ],
+    "mcpPatAlertFiles": [
+      "observability/prometheus/alerts/llm-gateway.rules.yaml",
+      "observability/prometheus/alerts/control-plane-automation.rules.yaml"
+    ],
     "internalTransportTlsValues": [
       "internalTransport.tls.enabled",
       "internalTransport.tls.requireClientCert",

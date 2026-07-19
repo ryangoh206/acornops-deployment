@@ -54,7 +54,35 @@ The chart values are organized by operator concern:
   Anthropic, and Gemini native API base URL overrides
 - `components.{controlPlane,executionEngine,llmGateway}.trust.additionalCaBundle`:
   optional component override for the global trust bundle
-- `components.llmGateway.mcpEgress`: remote MCP hostname policy
+- `components.llmGateway.mcpEgress`: remote MCP hostname policy and optional
+  namespace-local TLS trust bundle
+- `components.llmGateway.remoteMcp.enabled`: emergency external MCP discovery
+  and execution kill switch; built-in tools remain available when false
+- `components.llmGateway.rateLimits.mcpConnectionPerWindow`: per-user,
+  per-installation connect/verify attempt budget within the shared window
+- `components.llmGateway.catalog`: official-registry policy, workspace-managed
+  source policy, and secret-backed bootstrap sources for private or air-gapped
+  MCP registries
+
+Personal MCP authentication is PAT-only in V1. PATs are supplied per user and
+per target or Agent installation through the control-plane API; the chart has no
+shared MCP authentication client or callback configuration.
+
+## Workflow V2 database cutover
+
+Workflow schema epoch 2 is a first-install or explicit-reset cutover, not a
+rolling upgrade. The control-plane migration Job runs a secret-free preflight
+and aborts with `WORKFLOW_V2_DATABASE_RESET_REQUIRED` when incompatible V1
+definitions, schedules, sessions, continuations, approvals, or active runs
+exist. It never deletes them. Back up, drop, and recreate the external
+control-plane database, then install the complete pinned control-plane,
+execution-engine, and llm-gateway matrix. Do not deploy any image independently.
+
+For local Compose data, use `task local-reset`. For external Kubernetes
+Postgres, use a provider snapshot or `pg_dump`, then explicitly drop and recreate
+the database with an administrative connection before retrying Helm. A rollback
+to V1 requires restoring that backup and the full V1 image matrix; chart rollback
+alone is unsafe across schema epochs.
 
 Control-plane HA requires external Redis for agent ownership, cross-pod
 JSON-RPC command routing, run event fanout, and renewed scheduler leases. The
@@ -287,6 +315,8 @@ directly under `values`; use supported Kubernetes Secret references such as
 `imagePullSecrets`.
 
 Target chat coordination warnings are controlled by `components.controlPlane.recentActivity.windowSeconds`, which renders to `TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS`. The default is `300` seconds.
+
+Workflow and target-chat PDF report retention is controlled by `components.controlPlane.reportArtifacts.maxRetentionDays`, which renders to `TARGET_CHAT_REPORT_RETENTION_DAYS`. The default is `30` days, and the chart accepts values from `1` through `365` days. Workflow requests cannot override this deployment policy. Execution duration remains controlled only by `agent.runtime.maxRuntimeMs`, rendered as `AGENT_MAX_RUNTIME_MS`.
 
 External integration account linking uses `EXTERNAL_INTEGRATION_CLIENTS_JSON`
 from the existing platform Secret. The JSON contains installed client

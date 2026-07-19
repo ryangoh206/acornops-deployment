@@ -545,6 +545,7 @@
                   { "required": ["corsOrigin"] },
                   { "required": ["conversationRetention"] },
                   { "required": ["toolResultArtifacts"] },
+                  { "required": ["reportArtifacts"] },
                   { "required": ["runEvents"] },
                   { "required": ["webhookEgress"] },
                   { "required": ["maxConcurrentRuns"] },
@@ -592,6 +593,14 @@
                   "properties": {
                     "retentionDays": { "type": "integer", "minimum": 1, "maximum": 7 },
                     "maxBytes": { "type": "integer", "minimum": 1024, "maximum": 2097152 }
+                  }
+                },
+                "reportArtifacts": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["maxRetentionDays"],
+                  "properties": {
+                    "maxRetentionDays": { "type": "integer", "minimum": 1, "maximum": 365 }
                   }
                 },
                 "recentActivity": {
@@ -701,6 +710,7 @@
                   { "required": ["corsOrigin"] },
                   { "required": ["conversationRetention"] },
                   { "required": ["toolResultArtifacts"] },
+                  { "required": ["reportArtifacts"] },
                   { "required": ["runEvents"] },
                   { "required": ["webhookEgress"] },
                   { "required": ["secretsBackend"] },
@@ -778,6 +788,62 @@
                     "allowLocalAddresses": { "type": "boolean" }
                   }
                 },
+                "remoteMcp": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["enabled"],
+                  "properties": {
+                    "enabled": { "type": "boolean" }
+                  }
+                },
+                "catalog": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["officialRegistryEnabled", "officialRegistryUrl", "allowWorkspaceManagedSources", "bootstrapSources"],
+                  "properties": {
+                    "officialRegistryEnabled": { "type": "boolean" },
+                    "officialRegistryUrl": { "type": "string", "minLength": 1 },
+                    "allowWorkspaceManagedSources": { "type": "boolean" },
+                    "bootstrapSources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["displayName", "baseUrl"],
+                        "properties": {
+                          "workspaceId": { "type": "string", "minLength": 1 },
+                          "displayName": { "type": "string", "minLength": 1 },
+                          "baseUrl": { "type": "string", "minLength": 1 },
+                          "networkRoute": { "type": "string", "enum": ["direct"] },
+                          "adapterBasePath": { "type": "string", "minLength": 1 },
+                          "enabled": { "type": "boolean" },
+                          "auth": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "type": { "type": "string", "enum": ["none", "bearer_token", "custom_header"] },
+                              "headerName": { "type": "string" },
+                              "secretKeyRef": {
+                                "oneOf": [
+                                  { "type": "null" },
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["name", "key"],
+                                    "properties": {
+                                      "name": { "type": "string", "minLength": 1 },
+                                      "key": { "type": "string", "minLength": 1 }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
                 "rateLimits": {
                   "type": "object",
                   "additionalProperties": false,
@@ -785,6 +851,7 @@
                     "windowSeconds": { "type": "integer", "minimum": 1 },
                     "llmPerWindow": { "type": "integer", "minimum": 1 },
                     "toolPerWindow": { "type": "integer", "minimum": 1 },
+                    "mcpConnectionPerWindow": { "type": "integer", "minimum": 1, "maximum": 1000 },
                     "requireRedisInProduction": { "type": "boolean" }
                   }
                 }
@@ -800,6 +867,7 @@
                   { "required": ["corsOrigin"] },
                   { "required": ["conversationRetention"] },
                   { "required": ["toolResultArtifacts"] },
+                  { "required": ["reportArtifacts"] },
                   { "required": ["runEvents"] },
                   { "required": ["webhookEgress"] },
                   { "required": ["maxConcurrentRuns"] },
@@ -936,6 +1004,7 @@
         "corsOrigin": { "type": "string" },
         "conversationRetention": { "type": "object" },
         "toolResultArtifacts": { "type": "object" },
+        "reportArtifacts": { "type": "object" },
         "recentActivity": { "type": "object" },
         "runEvents": { "type": "object" },
         "webhookEgress": { "type": "object" },
@@ -951,6 +1020,8 @@
         "database": { "type": "object" },
         "vault": { "type": "object" },
         "mcpEgress": { "type": "object" },
+        "remoteMcp": { "type": "object" },
+        "catalog": { "type": "object" },
         "rateLimits": { "type": "object" }
       }
     },

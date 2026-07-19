@@ -446,6 +446,8 @@ components:
     toolResultArtifacts:
       retentionDays: 7
       maxBytes: 2097152
+    reportArtifacts:
+      maxRetentionDays: 30
     recentActivity:
       windowSeconds: 300
     runEvents:
@@ -604,10 +606,39 @@ components:
       allowedHosts: ""
       allowPrivateNetworks: false
       allowLocalAddresses: false
+      # Optional namespace-local CA bundle that extends trust only for remote MCP.
+      caBundle:
+        configMapKeyRef: null
+        secretKeyRef: null
+    remoteMcp:
+      # Emergency kill switch. false blocks external discovery and execution;
+      # built-in platform MCP remains available.
+      enabled: true
+    # Registry discovery is separate from runtime MCP installation. Bootstrap
+    # credentials are injected from Secrets and never rendered into ConfigMaps.
+    catalog:
+      officialRegistryEnabled: false
+      officialRegistryUrl: https://registry.modelcontextprotocol.io
+      allowWorkspaceManagedSources: true
+      bootstrapSources: []
+      # Example entry:
+      # - workspaceId: "*"
+      #   displayName: Internal MCP Registry
+      #   baseUrl: https://registry.internal.example
+      #   networkRoute: direct
+      #   adapterBasePath: /v0.1
+      #   enabled: true
+      #   auth:
+      #     type: bearer_token
+      #     headerName: ""
+      #     secretKeyRef:
+      #       name: internal-registry-credential
+      #       key: token
     rateLimits:
       windowSeconds: 60
       llmPerWindow: 100
       toolPerWindow: 200
+      mcpConnectionPerWindow: 10
       requireRedisInProduction: true
     image:
       repository: ghcr.io/acornops/llm-gateway

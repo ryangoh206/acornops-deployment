@@ -10,10 +10,6 @@ ENV_FILE="${1:-}"
 AGENT_ENV_FILE="${2:-}"
 CLI_OIDC_PROFILE="${LOCAL_OIDC_PROFILE:-}"
 CLI_EXTRA_PROFILES="${LOCAL_EXTRA_PROFILES:-}"
-CLI_LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES="${LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES:-}"
-CLI_ACORNOPS_DEV_SEED_OPENAI_API_KEY="${ACORNOPS_DEV_SEED_OPENAI_API_KEY:-}"
-CLI_ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY="${ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY:-}"
-CLI_ACORNOPS_DEV_SEED_GEMINI_API_KEY="${ACORNOPS_DEV_SEED_GEMINI_API_KEY:-}"
 COMPOSE_FILES=(-f "${ROOT_DIR}/compose/vm-prod/compose.yaml" -f "${ROOT_DIR}/compose/local/compose.source.yaml")
 
 if [[ -z "${ENV_FILE}" ]]; then
@@ -70,15 +66,11 @@ if [[ -z "${AGENT_ENV_FILE}" ]]; then
   AGENT_ENV_FILE="${DEFAULT_AGENT_ENV_FILE}"
 fi
 
-if [[ ! -f "${AGENT_ENV_FILE}" ]]; then
-  echo "Missing agent env file: ${AGENT_ENV_FILE}"
-  echo "Copy ${ROOT_DIR}/env/local/.env.agent.example to ${ROOT_DIR}/env/local/.env.agent and edit values."
-  exit 1
-fi
-
 set -a
 source "${ENV_FILE}"
-source "${AGENT_ENV_FILE}"
+if [[ -f "${AGENT_ENV_FILE}" ]]; then
+  source "${AGENT_ENV_FILE}"
+fi
 set +a
 
 if [[ -n "${CLI_OIDC_PROFILE}" ]]; then
@@ -88,22 +80,40 @@ fi
 if [[ -n "${CLI_EXTRA_PROFILES}" ]]; then
   LOCAL_EXTRA_PROFILES="${CLI_EXTRA_PROFILES}"
 fi
-LOCAL_EXTRA_PROFILES="${LOCAL_EXTRA_PROFILES:-}"
-if [[ -n "${CLI_LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES}" ]]; then
-  LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES="${CLI_LLM_ENABLE_DETERMINISTIC_DEV_RESPONSES}"
-fi
-if [[ -n "${CLI_ACORNOPS_DEV_SEED_OPENAI_API_KEY}" ]]; then
-  ACORNOPS_DEV_SEED_OPENAI_API_KEY="${CLI_ACORNOPS_DEV_SEED_OPENAI_API_KEY}"
-fi
-if [[ -n "${CLI_ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY}" ]]; then
-  ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY="${CLI_ACORNOPS_DEV_SEED_ANTHROPIC_API_KEY}"
-fi
-if [[ -n "${CLI_ACORNOPS_DEV_SEED_GEMINI_API_KEY}" ]]; then
-  ACORNOPS_DEV_SEED_GEMINI_API_KEY="${CLI_ACORNOPS_DEV_SEED_GEMINI_API_KEY}"
+LOCAL_EXTRA_PROFILES="${LOCAL_EXTRA_PROFILES:-target-fixtures}"
+
+profile_enabled() {
+  local requested="$1"
+  local configured="${LOCAL_EXTRA_PROFILES//,/ }"
+  for profile in ${configured}; do
+    if [[ "${profile}" == "${requested}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+if profile_enabled target-fixtures && profile_enabled cluster-fixture; then
+  echo "Choose either target-fixtures or cluster-fixture, not both."
+  exit 1
 fi
 
-local_k3d_ensure_cluster
-local_k8s_prepare_stack_kubeconfig || true
+export SEED_DEVELOPMENT_DATA=true
+: "${LOCAL_CLUSTER_ID:=5b006e4c-509c-458a-9f02-5aafbdc01ade}"
+: "${LOCAL_AGENT_KEY:=ak_local_dev_shared_key}"
+: "${LOCAL_VM_TARGET_ID:=9254df42-4d9b-4e63-8bb6-93442e7d9a45}"
+: "${LOCAL_VM_AGENT_KEY:=ak_local_vm_dev_shared_key}"
+export LOCAL_CLUSTER_ID LOCAL_AGENT_KEY LOCAL_VM_TARGET_ID LOCAL_VM_AGENT_KEY
+export SEED_AGENT_KEY="${LOCAL_AGENT_KEY}"
+export SEED_VM_AGENT_KEY="${LOCAL_VM_AGENT_KEY}"
+
+if profile_enabled cluster-fixture; then
+  local_k3d_ensure_cluster
+  local_k8s_prepare_stack_kubeconfig || true
+elif profile_enabled target-fixtures; then
+  local_k3d_ensure_cluster
+  local_k8s_prepare_stack_kubeconfig || true
+fi
 
 if [[ "${LOCAL_OIDC_PROFILE}" == "oidc-keycloak" ]]; then
   export OIDC_PROVIDER_NAME="keycloak"
@@ -126,6 +136,12 @@ fi
 
 COMPOSE_CMD=(docker compose "${COMPOSE_FILES[@]}" "${COMPOSE_PROFILE_ARGS[@]}" --env-file "${ENV_FILE}")
 
+ao_heading "Checking whether the Workflow V2 database reset is required..."
+if ! "${COMPOSE_CMD[@]}" run --rm --build control-plane-init npm run capabilities:preflight; then
+  echo "Control-plane preflight failed. Run 'task local-reset' to reset local data, then retry." >&2
+  exit 1
+fi
+
 ao_heading "Running llm-gateway migrations..."
 "${COMPOSE_CMD[@]}" run --rm --build llm-gateway-init
 
@@ -134,7 +150,12 @@ ao_heading "Running control-plane migrations..."
 
 ao_heading "Starting local stack..."
 "${COMPOSE_CMD[@]}" up -d --build
-"${COMPOSE_CMD[@]}" up -d --force-recreate --no-deps agentk agentv edge-proxy
+"${COMPOSE_CMD[@]}" up -d --force-recreate --no-deps edge-proxy
+if profile_enabled target-fixtures; then
+  "${COMPOSE_CMD[@]}" up -d --force-recreate --no-deps agentk agentv
+elif profile_enabled cluster-fixture; then
+  "${COMPOSE_CMD[@]}" up -d --force-recreate --no-deps agentk
+fi
 
 kctl() {
   local_k8s_kubectl "$@"
@@ -171,4 +192,6 @@ seed_demo_workloads() {
   ao_ok "Demo workloads applied in namespace ${DEMO_K8S_NAMESPACE}."
 }
 
-seed_demo_workloads
+if profile_enabled target-fixtures || profile_enabled cluster-fixture; then
+  seed_demo_workloads
+fi

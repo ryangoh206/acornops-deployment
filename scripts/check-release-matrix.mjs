@@ -29,6 +29,11 @@ function componentLine(content, component) {
   return match?.[1];
 }
 
+function stackMetadata(content, key) {
+  const match = content.match(new RegExp(`^\\s{4}${key}:\\s*(\\S+)\\s*$`, 'm'));
+  return match?.[1];
+}
+
 function chartLine(content, chart) {
   const match = content.match(new RegExp(`^\\s{6}${chart}:\\s*(\\S+)\\s*$`, 'm'));
   return match?.[1];
@@ -79,6 +84,26 @@ const expectedK8sImages = {
 };
 const expectedPlatformChart = splitVersionedOciRef(chartLine(k8sPlatformStack, 'acornopsPlatform'));
 const expectedAgentChart = splitVersionedOciRef(chartLine(k8sPlatformStack, 'acornopsAgentK'));
+
+for (const [name, block] of [
+  ['local-dev', localStack],
+  ['vm-prod-v1', vmProdStack],
+  ['k8s-platform-v1', k8sPlatformStack]
+]) {
+  expect(stackMetadata(block, 'executionContractVersion') === '2', `${name} must declare exact execution contract version 2`);
+  expect(
+    stackMetadata(block, 'workflowSchemaEpoch') === 'workflow-v2-greenfield-1',
+    `${name} must declare workflow schema epoch workflow-v2-greenfield-1`
+  );
+}
+const declaredExecutionContractVersions = [
+  ...stackVersions.matchAll(/executionContractVersion:\s*(\d+)/g)
+].map((match) => match[1]);
+expect(
+  declaredExecutionContractVersions.length === 3
+    && declaredExecutionContractVersions.every((version) => version === '2'),
+  'release matrix must reject mixed execution contract versions'
+);
 
 expect(extractYamlString(chart, 'version') === expectedPlatformChart.version, `platform chart version should be ${expectedPlatformChart.version}`);
 expect(

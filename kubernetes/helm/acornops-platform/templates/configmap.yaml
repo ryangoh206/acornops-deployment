@@ -31,6 +31,7 @@ data:
   CONVERSATION_RETENTION_JOB_INTERVAL_SECONDS: {{ .Values.components.controlPlane.conversationRetention.jobIntervalSeconds | quote }}
   TOOL_RESULT_ARTIFACT_RETENTION_DAYS: {{ .Values.components.controlPlane.toolResultArtifacts.retentionDays | quote }}
   TOOL_RESULT_ARTIFACT_MAX_BYTES: {{ .Values.components.controlPlane.toolResultArtifacts.maxBytes | quote }}
+  TARGET_CHAT_REPORT_RETENTION_DAYS: {{ .Values.components.controlPlane.reportArtifacts.maxRetentionDays | quote }}
   WORKSPACE_AUDIT_LOGGING_MODE: {{ .Values.auditLogging.mode | quote }}
   WORKSPACE_AUDIT_RETENTION_DAYS: {{ .Values.auditLogging.retentionDays | quote }}
   TARGET_CHAT_RECENT_ACTIVITY_WINDOW_SECONDS: {{ .Values.components.controlPlane.recentActivity.windowSeconds | quote }}
@@ -157,6 +158,27 @@ data:
   MAX_REQUEST_BODY_BYTES: {{ .Values.components.executionEngine.maxRequestBodyBytes | int | quote }}
 {{- end }}
 {{- if .Values.components.llmGateway.enabled }}
+{{- $catalogBootstrapSources := list -}}
+{{- range $index, $source := .Values.components.llmGateway.catalog.bootstrapSources -}}
+{{- $auth := default dict $source.auth -}}
+{{- $authType := default "none" $auth.type -}}
+{{- $authConfig := dict "type" $authType -}}
+{{- if eq $authType "custom_header" -}}
+{{- $_ := set $authConfig "headerName" (required (printf "components.llmGateway.catalog.bootstrapSources[%d].auth.headerName is required for custom_header" $index) $auth.headerName) -}}
+{{- end -}}
+{{- if ne $authType "none" -}}
+{{- $secretRef := required (printf "components.llmGateway.catalog.bootstrapSources[%d].auth.secretKeyRef is required for authenticated sources" $index) $auth.secretKeyRef -}}
+{{- $_ := required (printf "components.llmGateway.catalog.bootstrapSources[%d].auth.secretKeyRef.name is required" $index) $secretRef.name -}}
+{{- $_ := required (printf "components.llmGateway.catalog.bootstrapSources[%d].auth.secretKeyRef.key is required" $index) $secretRef.key -}}
+{{- $_ := set $authConfig "credentialEnv" (printf "CATALOG_BOOTSTRAP_SOURCE_%d_CREDENTIAL" $index) -}}
+{{- end -}}
+{{- $sourceEnabled := true -}}
+{{- if hasKey $source "enabled" -}}
+{{- $sourceEnabled = $source.enabled -}}
+{{- end -}}
+{{- $entry := dict "workspaceId" (default "*" $source.workspaceId) "displayName" $source.displayName "baseUrl" $source.baseUrl "networkRoute" (default "direct" $source.networkRoute) "adapterBasePath" (default "/v0.1" $source.adapterBasePath) "enabled" $sourceEnabled "auth" $authConfig -}}
+{{- $catalogBootstrapSources = append $catalogBootstrapSources $entry -}}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -203,8 +225,14 @@ data:
   MCP_EGRESS_ALLOWED_HOSTS: {{ .Values.components.llmGateway.mcpEgress.allowedHosts | quote }}
   MCP_EGRESS_ALLOW_PRIVATE_NETWORKS: {{ .Values.components.llmGateway.mcpEgress.allowPrivateNetworks | quote }}
   MCP_EGRESS_ALLOW_LOCAL_ADDRESSES: {{ .Values.components.llmGateway.mcpEgress.allowLocalAddresses | quote }}
+  REMOTE_MCP_ENABLED: {{ .Values.components.llmGateway.remoteMcp.enabled | quote }}
+  CATALOG_OFFICIAL_REGISTRY_ENABLED: {{ .Values.components.llmGateway.catalog.officialRegistryEnabled | quote }}
+  CATALOG_OFFICIAL_REGISTRY_URL: {{ .Values.components.llmGateway.catalog.officialRegistryUrl | quote }}
+  CATALOG_WORKSPACE_MANAGED_SOURCES_ENABLED: {{ .Values.components.llmGateway.catalog.allowWorkspaceManagedSources | quote }}
+  CATALOG_BOOTSTRAP_SOURCES_JSON: {{ $catalogBootstrapSources | toJson | quote }}
   RATE_LIMIT_WINDOW_SECONDS: {{ .Values.components.llmGateway.rateLimits.windowSeconds | quote }}
   LLM_RATE_LIMIT_PER_WINDOW: {{ .Values.components.llmGateway.rateLimits.llmPerWindow | quote }}
   TOOL_RATE_LIMIT_PER_WINDOW: {{ .Values.components.llmGateway.rateLimits.toolPerWindow | quote }}
+  MCP_CONNECTION_RATE_LIMIT_PER_WINDOW: {{ .Values.components.llmGateway.rateLimits.mcpConnectionPerWindow | quote }}
   REQUIRE_REDIS_RATE_LIMITS_IN_PRODUCTION: {{ .Values.components.llmGateway.rateLimits.requireRedisInProduction | quote }}
 {{- end }}

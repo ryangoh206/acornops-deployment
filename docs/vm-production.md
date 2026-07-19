@@ -47,15 +47,45 @@ compose defaults follow `release/stack-versions.yaml`; do not use mutable tags
 such as `latest` for `MANAGEMENT_CONSOLE_IMAGE`, `CONTROL_PLANE_IMAGE`,
 `EXECUTION_ENGINE_IMAGE`, or `LLM_GATEWAY_IMAGE` in VM production.
 
-LLM gateway MCP egress is deny-by-default for private networks in production. Keep `MCP_EGRESS_ALLOWED_HOSTS` empty for public remote MCP servers and require HTTPS. For private deployments, add only reviewed internal hostnames to `MCP_EGRESS_ALLOWED_HOSTS`; avoid setting `MCP_EGRESS_ALLOW_PRIVATE_NETWORKS=true` unless the whole gateway network is dedicated to trusted internal MCP traffic.
+LLM gateway MCP egress is deny-by-default for private networks in production. Keep `MCP_EGRESS_ALLOWED_HOSTS` empty for public remote MCP servers and require HTTPS. For private deployments, add only reviewed internal hostnames to `MCP_EGRESS_ALLOWED_HOSTS`; avoid setting `MCP_EGRESS_ALLOW_PRIVATE_NETWORKS=true` unless the whole gateway network is dedicated to trusted internal MCP traffic. `REMOTE_MCP_ENABLED=false` is the emergency kill switch and leaves built-in tools operational. `MCP_CONNECTION_RATE_LIMIT_PER_WINDOW` bounds connect and verify attempts for each user and installation.
 
 ## Deploy
+
+Run the mandatory Workflow V2 reset preflight before deployment:
+
+```bash
+scripts/agent-capability-cutover-preflight.sh env/vm/.env.prod ./agent-capability-preflight
+```
+
+Both JSON files are secret-free. If the control-plane report sets
+`resetRequired: true`, back up the database and explicitly drop and recreate it:
+
+```bash
+pg_dump --format=custom --file acornops-control-plane-pre-v2.dump "$CONTROL_PLANE_DATABASE_URL"
+dropdb --force --dbname "$POSTGRES_ADMIN_URL" "$CONTROL_PLANE_DATABASE_NAME"
+createdb --dbname "$POSTGRES_ADMIN_URL" "$CONTROL_PLANE_DATABASE_NAME"
+```
+
+Workflow V1 data is not preserved and is never removed automatically. This is a
+first-install/reset cutover; deploy the control-plane, execution-engine, gateway,
+deployment configuration, and documentation as one pinned matrix.
 
 ```bash
 task prod-up
 ```
 
-`prod-up` runs `llm-gateway-init` and `control-plane-init` before starting application services. During the pre-release phase, schema files may be rewritten directly; inspect job logs or run the control-plane `db:status` command inside the service image when checking migration state.
+`prod-up` runs the reset preflight before either application starts and aborts
+when a reset is required. It then runs `llm-gateway-init` and
+`control-plane-init`. Released numbered migrations are immutable; inspect logs or
+run the control-plane `db:status` command inside the service image when checking
+migration state.
+
+Perform the PAT V1 release in a maintenance window: pause admission and
+schedulers, drain runs, disable remote MCP, back up Postgres and the secret
+namespace, then deploy gateway migration/application before control plane and
+console. Smoke test built-in tools plus target/Agent PAT connect, verify,
+rotation, and disconnect before re-enabling remote MCP. Restore only before any
+new PAT is entered; otherwise forward-fix with the kill switch active.
 
 ## Operate
 

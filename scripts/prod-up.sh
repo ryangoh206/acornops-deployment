@@ -30,6 +30,12 @@ COMPOSE_CMD=(docker compose "${COMPOSE_FILES[@]}" --profile prod --env-file "${E
 
 "${COMPOSE_CMD[@]}" pull
 
+echo "Checking whether the Workflow V2 database reset is required..."
+if ! "${COMPOSE_CMD[@]}" run --rm control-plane-init node dist/scripts/control-plane-db.js capabilities:preflight; then
+  echo "Control-plane preflight failed. If WORKFLOW_V2_DATABASE_RESET_REQUIRED was reported, back up, drop, and recreate the database before retrying." >&2
+  exit 1
+fi
+
 echo "Running llm-gateway migrations..."
 "${COMPOSE_CMD[@]}" run --rm llm-gateway-init
 
