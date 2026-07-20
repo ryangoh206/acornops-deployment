@@ -136,12 +136,6 @@ fi
 
 COMPOSE_CMD=(docker compose "${COMPOSE_FILES[@]}" "${COMPOSE_PROFILE_ARGS[@]}" --env-file "${ENV_FILE}")
 
-ao_heading "Checking whether the Workflow V2 database reset is required..."
-if ! "${COMPOSE_CMD[@]}" run --rm --build control-plane-init npm run capabilities:preflight; then
-  echo "Control-plane preflight failed. Run 'task local-reset' to reset local data, then retry." >&2
-  exit 1
-fi
-
 ao_heading "Running llm-gateway migrations..."
 "${COMPOSE_CMD[@]}" run --rm --build llm-gateway-init
 

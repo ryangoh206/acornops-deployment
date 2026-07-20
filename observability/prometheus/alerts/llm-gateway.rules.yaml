@@ -34,8 +34,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Personal MCP secret cleanup failed"
-          description: "A disconnect, uninstall, or trust-boundary cleanup could not delete a personal MCP secret."
+          summary: "MCP credential cleanup failed"
+          description: "A disconnect, uninstall, or trust-boundary cleanup could not delete an MCP credential."
 
       - alert: LlmGatewayMcpRuntimeAuthRejectionsSustained
         expr: sum(rate(gateway_mcp_runtime_auth_rejections_total[5m])) > 0.05
@@ -44,7 +44,7 @@ groups:
           severity: warning
         annotations:
           summary: "Remote MCP authentication rejections are sustained"
-          description: "Remote MCP servers are repeatedly returning 401 or 403 for personal connections."
+          description: "Remote MCP servers are repeatedly returning 401 or 403 for credential connections."
 
       - alert: LlmGatewayProviderErrorsElevated
         expr: |

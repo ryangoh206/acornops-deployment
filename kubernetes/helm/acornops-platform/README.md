@@ -54,34 +54,30 @@ The chart values are organized by operator concern:
   Anthropic, and Gemini native API base URL overrides
 - `components.{controlPlane,executionEngine,llmGateway}.trust.additionalCaBundle`:
   optional component override for the global trust bundle
-- `components.llmGateway.mcpEgress`: remote MCP hostname policy and optional
-  namespace-local TLS trust bundle
+- `components.llmGateway.mcpEgress`: remote MCP hostname policy
 - `components.llmGateway.remoteMcp.enabled`: emergency external MCP discovery
   and execution kill switch; built-in tools remain available when false
-- `components.llmGateway.rateLimits.mcpConnectionPerWindow`: per-user,
+- `components.llmGateway.rateLimits.mcpConnectionPerWindow`: per-owner,
   per-installation connect/verify attempt budget within the shared window
 - `components.llmGateway.catalog`: official-registry policy, workspace-managed
   source policy, and secret-backed bootstrap sources for private or air-gapped
   MCP registries
 
-Personal MCP authentication is PAT-only in V1. PATs are supplied per user and
-per target or Agent installation through the control-plane API; the chart has no
-shared MCP authentication client or callback configuration.
+Authenticated MCP installations explicitly select workspace-managed or
+individual credential ownership. Credentials are supplied through the
+control-plane API; the chart has no MCP authentication callback configuration.
 
-## Workflow V2 database cutover
+## Greenfield database epoch
 
-Workflow schema epoch 2 is a first-install or explicit-reset cutover, not a
-rolling upgrade. The control-plane migration Job runs a secret-free preflight
-and aborts with `WORKFLOW_V2_DATABASE_RESET_REQUIRED` when incompatible V1
-definitions, schedules, sessions, continuations, approvals, or active runs
-exist. It never deletes them. Back up, drop, and recreate the external
-control-plane database, then install the complete pinned control-plane,
-execution-engine, and llm-gateway matrix. Do not deploy any image independently.
+This version is a first-install or explicit-reset cutover, not a rolling
+upgrade. Back up if needed, then drop and recreate both external application
+databases before installing the pinned control-plane, execution-engine, and
+llm-gateway matrix. Do not deploy any image independently.
 
 For local Compose data, use `task local-reset`. For external Kubernetes
 Postgres, use a provider snapshot or `pg_dump`, then explicitly drop and recreate
 the database with an administrative connection before retrying Helm. A rollback
-to V1 requires restoring that backup and the full V1 image matrix; chart rollback
+requires restoring a matching backup and full image matrix; chart rollback
 alone is unsafe across schema epochs.
 
 Control-plane HA requires external Redis for agent ownership, cross-pod
@@ -150,8 +146,9 @@ layer 3/4, so its destinations use selectors or CIDRs rather than hostnames.
 Private MCP endpoints require all three controls: an exact hostname in
 `components.llmGateway.mcpEgress.allowedHosts`, a matching private destination
 under `networkPolicies.extraEgress.llmGateway`, and TLS trust for the issuing
-organization CA. Configure the trust file from exactly one existing ConfigMap
-or Secret in the release namespace:
+organization CA. Use the LLM gateway's existing additive trust setting to
+configure the trust file from exactly one existing ConfigMap or Secret in the
+release namespace:
 
 ```yaml
 components:

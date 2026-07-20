@@ -64,13 +64,13 @@ groups:
           summary: "Automation MCP dependency failures are elevated"
           description: "Automation template readiness or tool discovery is failing against configured MCP dependencies."
 
-      - alert: PersonalMcpCleanupRetriesFailing
+      - alert: McpCredentialCleanupRetriesFailing
         expr: sum(increase(control_plane_mcp_secret_cleanup_total{outcome=~"failure|queue_failure"}[10m])) > 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Personal MCP cleanup retries are failing"
+          summary: "MCP credential cleanup retries are failing"
           description: "Member or workspace revocation cleanup failed or could not be durably queued."
 
       - alert: WorkflowScheduleMcpReadinessAutoPaused
@@ -80,7 +80,7 @@ groups:
           severity: warning
         annotations:
           summary: "Scheduled workflows were auto-paused for MCP readiness"
-          description: "One or more user-principal schedules require manual repair and re-enable after personal MCP readiness failed."
+          description: "One or more schedules require manual repair and re-enable after MCP credential readiness failed."
 
       - alert: AutomationPdfRenderFailures
         expr: sum(rate(control_plane_automation_pdf_render_total{outcome="error",measure="renders"}[5m])) > 0.02

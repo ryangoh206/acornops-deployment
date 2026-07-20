@@ -606,10 +606,6 @@ components:
       allowedHosts: ""
       allowPrivateNetworks: false
       allowLocalAddresses: false
-      # Optional namespace-local CA bundle that extends trust only for remote MCP.
-      caBundle:
-        configMapKeyRef: null
-        secretKeyRef: null
     remoteMcp:
       # Emergency kill switch. false blocks external discovery and execution;
       # built-in platform MCP remains available.

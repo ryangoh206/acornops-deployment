@@ -211,10 +211,6 @@ components:
     # networkPolicies.extraEgress.llmGateway, and an additional CA bundle.
     # mcpEgress:
     #   allowedHosts: test-mcp.app.internal.org
-    #   caBundle:
-    #     configMapKeyRef:
-    #       name: organization-trust-bundle
-    #       key: ca-bundle.pem
     podDisruptionBudget:
       enabled: true
       minAvailable: 2

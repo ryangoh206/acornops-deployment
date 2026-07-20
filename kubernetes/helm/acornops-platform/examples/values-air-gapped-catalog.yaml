@@ -22,7 +22,8 @@ components:
       allowedHosts: registry.internal.example,mcp.internal.example
       allowPrivateNetworks: true
       allowLocalAddresses: false
-      caBundle:
+    trust:
+      additionalCaBundle:
         configMapKeyRef:
           name: internal-platform-ca
           key: ca-bundle.pem

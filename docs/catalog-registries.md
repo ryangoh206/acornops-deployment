@@ -32,13 +32,18 @@ components:
     mcpEgress:
       allowedHosts: registry.internal.example,mcp.internal.example
       allowPrivateNetworks: true
-      caBundle:
+    trust:
+      additionalCaBundle:
         configMapKeyRef:
           name: internal-platform-ca
           key: ca-bundle.pem
 ```
 
-Personal MCP authentication is PAT-only in V1. Each user enters a write-only PAT for each target or Agent installation through the management console. Workflows reuse their selected Agent's connection; deployment operators do not configure shared MCP credentials or callbacks.
+Authenticated MCP installations select workspace-managed or individual
+credential ownership. Workspace credentials belong to one installation;
+individual credentials belong to one user and installation. Workflows reuse
+their selected Agent installation, and deployment operators do not configure
+credential callbacks.
 
 ## Registry URL contract
 
@@ -53,7 +58,7 @@ An air-gapped installation should:
 1. Set `officialRegistryEnabled: false`.
 2. Bootstrap only internal v0.1-compatible registry URLs.
 3. Set `allowedHosts` to the exact registry and MCP server hostnames.
-4. Mount the internal CA through `mcpEgress.caBundle` when private PKI is used.
+4. Mount the internal CA through `trust.additionalCaBundle` when private PKI is used.
 5. Configure Kubernetes network policy egress only for those internal destinations.
 
 The registry, MCP endpoints, Postgres, Redis, and secret backend can all remain on the private network. No public connector or internet route is required.

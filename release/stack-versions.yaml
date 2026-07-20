@@ -42,6 +42,6 @@ stacks:
 compatibility:
   notes:
     - Deploy control-plane, execution-engine, and llm-gateway only as one pinned matrix with execution contract version 2.
-    - Workflow schema epoch 2 is a first-install or explicit-reset cutover, not a rolling upgrade.
-    - Back up, drop, and recreate external databases explicitly when preflight reports WORKFLOW_V2_DATABASE_RESET_REQUIRED.
+    - This greenfield schema epoch is a first-install or explicit-reset cutover, not a rolling upgrade.
+    - Back up if needed, then explicitly drop and recreate both external application databases.
     - Treat this matrix as release source-of-truth for docs and deployment examples.

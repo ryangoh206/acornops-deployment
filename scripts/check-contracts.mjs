@@ -205,10 +205,6 @@ const vmAdditionalCaCompose = readFileSync(
 );
 const vmCompose = readFileSync(path.join(root, 'compose/vm-prod/compose.yaml'), 'utf8');
 const prodUp = readFileSync(path.join(root, 'scripts/prod-up.sh'), 'utf8');
-const capabilityCutoverPreflight = readFileSync(
-  path.join(root, 'scripts/agent-capability-cutover-preflight.sh'),
-  'utf8'
-);
 const taskfile = readFileSync(path.join(root, 'Taskfile.yml'), 'utf8');
 const demoWorkloads = readFileSync(path.join(root, 'k8s/demo-workloads.yaml.tpl'), 'utf8');
 const localSmoke = readFileSync(path.join(root, 'scripts/local-smoke.mjs'), 'utf8');
@@ -256,19 +252,18 @@ for (const marker of [
   expect(llmGatewayAlerts.includes(marker), `LLM gateway alert rules should preserve ${marker}`);
 }
 for (const marker of [
-  'PersonalMcpCleanupRetriesFailing',
+  'McpCredentialCleanupRetriesFailing',
   'control_plane_mcp_secret_cleanup_total',
   'WorkflowScheduleMcpReadinessAutoPaused',
   'mcp_readiness_auto_paused'
 ]) {
   expect(controlPlaneAutomationAlerts.includes(marker), `Control-plane alert rules should preserve ${marker}`);
 }
-const capabilityMigration = deploymentManifest.contractSurfaces?.agentCapabilityMigration;
+const capabilityMigration = deploymentManifest.contractSurfaces?.databaseEpoch;
 expect(
   capabilityMigration?.mode === 'greenfield_reset' &&
-    capabilityMigration?.preservesExistingData === false &&
-    capabilityMigration?.preflightScript === 'scripts/agent-capability-cutover-preflight.sh',
-  'Deployment manifest should expose the explicit Workflow V2 greenfield reset contract'
+    capabilityMigration?.preservesPreReleaseData === false,
+  'Deployment manifest should expose the greenfield database epoch contract'
 );
 for (const composeSource of [localCompose, vmCompose]) {
   expect(
@@ -284,14 +279,11 @@ for (const envExample of [localEnvExample, vmEnvExample]) {
 }
 expect(
   !prodUp.includes('ACORNOPS_AGENT_CAPABILITY_CUTOVER_ACK'),
-  'VM production startup should use reset preflight rather than a destructive acknowledgement'
+  'VM production startup should not accept a destructive acknowledgement'
 );
 expect(
-  capabilityCutoverPreflight.includes('capabilities:preflight') &&
-    capabilityCutoverPreflight.includes('control-plane-init') &&
-    capabilityCutoverPreflight.includes('app.scripts.capability_preflight') &&
-    capabilityCutoverPreflight.includes('llm-gateway-init'),
-  'Agent capability migration preflight should export both control-plane and gateway inventories'
+  !localUp.includes('capabilities:preflight') && !prodUp.includes('capabilities:preflight'),
+  'Startup must not retain the pre-release capability reset preflight'
 );
 expect(!agentDeploy.includes('ACORNOPS_TARGET_ID'), 'Deployment agentk env should not expose a separate target id');
 expect(agentDeploy.includes('ACORNOPS_CLUSTER_ID'), 'Deployment agentk env should expose ACORNOPS_CLUSTER_ID');

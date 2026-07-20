@@ -592,7 +592,7 @@ assertExcludes(defaultRender, 'image: redis', 'chart must not render Redis workl
 assertMatch(defaultRender, /ENABLE_API_DOCS:\s+"false"/, 'API docs should default to disabled');
 assertIncludes(defaultRender, 'name: acornops-platform-secrets', 'default chart should reference the existing platform Secret');
 assertIncludes(defaultRender, '"helm.sh/hook": pre-install,pre-upgrade', 'migration jobs should run as Helm hooks');
-assertIncludes(defaultRender, 'node dist/scripts/control-plane-db.js capabilities:preflight &&', 'control-plane reset preflight should render');
+assertExcludes(defaultRender, 'capabilities:preflight', 'pre-release reset preflight must not render');
 assertIncludes(defaultRender, 'node dist/scripts/control-plane-db.js migrate', 'control-plane migration job should render');
 assertIncludes(defaultRender, 'command: ["sh", "-c", "alembic upgrade head"]', 'llm-gateway migration job should render');
 assertExcludes(
@@ -1303,7 +1303,7 @@ assertIncludes(productionRender, 'LLM_DEFAULT_MODEL: "gpt-5.5"', 'production sho
 assertExcludes(productionRender, 'gpt-4.1-mini', 'production should not allow GPT-4 OpenAI models by default');
 assertIncludes(productionRender, 'SECRETS_CACHE_TTL_SEC: "0"', 'production should keep llm-gateway plaintext secret caching disabled');
 assertIncludes(productionRender, 'REMOTE_MCP_ENABLED: "true"', 'production should render the remote MCP kill switch');
-assertIncludes(productionRender, 'MCP_CONNECTION_RATE_LIMIT_PER_WINDOW: "10"', 'production should render the personal MCP mutation throttle');
+assertIncludes(productionRender, 'MCP_CONNECTION_RATE_LIMIT_PER_WINDOW: "10"', 'production should render the MCP credential mutation throttle');
 assertExcludes(productionRender, 'MCP_OAUTH_', 'production should not render an MCP OAuth surface');
 assertExcludes(
   productionRender,

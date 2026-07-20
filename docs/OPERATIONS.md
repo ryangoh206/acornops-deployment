@@ -49,35 +49,24 @@ Prepare:
 cp env/vm/.env.example env/vm/.env.prod
 ```
 
-Before installing the Workflow V2 stack, export and retain the secret-free reset
-preflight:
+This version establishes a greenfield schema epoch. Back up if needed, then
+explicitly drop and recreate both application databases before deploying:
 
 ```bash
-scripts/agent-capability-cutover-preflight.sh env/vm/.env.prod ./agent-capability-preflight
-```
-
-If `control-plane.json` reports `resetRequired: true`, stop. Back up the external
-control-plane database, then explicitly drop and recreate it before retrying:
-
-```bash
-pg_dump --format=custom --file acornops-control-plane-pre-v2.dump "$CONTROL_PLANE_DATABASE_URL"
+pg_dump --format=custom --file acornops-control-plane-backup.dump "$CONTROL_PLANE_DATABASE_URL"
 dropdb --force --dbname "$POSTGRES_ADMIN_URL" "$CONTROL_PLANE_DATABASE_NAME"
 createdb --dbname "$POSTGRES_ADMIN_URL" "$CONTROL_PLANE_DATABASE_NAME"
 ```
 
 Use provider-specific snapshots instead where appropriate. This cutover does not
-preserve Workflow V1 data and never deletes it automatically. Deploy the pinned
+preserve pre-release data. Deploy the pinned
 control-plane, execution-engine, and llm-gateway matrix together; mixed versions
 are unsupported.
 
-For the PAT cutover, rehearse the migration on a production-shaped database
-copy and both secret backends. During the maintenance window, stop new run
-admission and schedulers, drain active runs, set `REMOTE_MCP_ENABLED=false`,
-and back up the gateway database and secret namespace. Deploy the gateway
-migration/application before the control plane, console, deployment config,
-and docs. Smoke test built-in tools and target/Agent PAT lifecycle before
-re-enabling remote MCP. Restore backups only before a new V1 PAT is accepted;
-afterward, keep the kill switch active and forward-fix.
+During the maintenance window, stop new run admission and schedulers, drain
+active runs, set `REMOTE_MCP_ENABLED=false`, and back up the gateway database and
+secret namespace. Smoke test built-in tools plus workspace and individual
+credential lifecycles before re-enabling remote MCP.
 
 Vault KV v2 cleanup must delete metadata beneath the configured namespace,
 mount, `VAULT_PATH_PREFIX`, and workspace path. Limit the cleanup token to that
@@ -137,13 +126,10 @@ helm upgrade --install acornops kubernetes/helm/acornops-platform \
   -f kubernetes/helm/acornops-platform/examples/values-production.yaml
 ```
 
-Kubernetes deployments require external Postgres and Redis plus a pre-created platform Secret.
-The control-plane migration Job runs the schema-v2 `capabilities:preflight`
-before migration. It aborts with `WORKFLOW_V2_DATABASE_RESET_REQUIRED` and
-secret-free per-table counts if incompatible Workflow V1 data exists. Back up,
-drop, and recreate the external control-plane database explicitly; the Job never
-deletes production data. This is a first-install/reset cutover, not a rolling
-upgrade, and all pinned stack images must be deployed together.
+Kubernetes deployments require external Postgres and Redis plus a pre-created
+platform Secret. Recreate both application databases before this first-install
+cutover; it is not a rolling upgrade. All pinned stack images must be deployed
+together.
 NetworkPolicies are enabled by default. Before installing or upgrading, set
 `networkPolicies.ingressController.from` for the cluster ingress controller and
 allow any private Postgres, Redis, OIDC, Vault, webhook, or MCP destinations in

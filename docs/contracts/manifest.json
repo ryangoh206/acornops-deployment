@@ -162,10 +162,9 @@
       "developmentFixtureIndependent": true,
       "seedDevelopmentDataPurpose": "optional local owner, workspace, Kubernetes target, target settings, and AgentK registration"
     },
-    "agentCapabilityMigration": {
+    "databaseEpoch": {
       "mode": "greenfield_reset",
-      "preservesExistingData": false,
-      "preflightScript": "scripts/agent-capability-cutover-preflight.sh"
+      "preservesPreReleaseData": false
     },
     "catalogEnv": [
       "CATALOG_OFFICIAL_REGISTRY_ENABLED",
@@ -183,7 +182,8 @@
       "components.llmGateway.catalog.officialRegistryUrl",
       "components.llmGateway.catalog.allowWorkspaceManagedSources",
       "components.llmGateway.catalog.bootstrapSources[].{workspaceId,displayName,baseUrl,networkRoute,adapterBasePath,enabled,auth.{type,headerName,secretKeyRef.{name,key}}}",
-      "components.llmGateway.mcpEgress.{allowedHosts,allowPrivateNetworks,allowLocalAddresses,caBundle}"
+      "components.llmGateway.mcpEgress.{allowedHosts,allowPrivateNetworks,allowLocalAddresses}",
+      "components.llmGateway.trust.additionalCaBundle"
     ],
     "mcpPatHelmValues": [
       "components.llmGateway.remoteMcp.enabled",
