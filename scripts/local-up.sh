@@ -115,6 +115,7 @@ elif profile_enabled target-fixtures; then
   local_k8s_prepare_stack_kubeconfig || true
 fi
 
+export OIDC_END_SESSION_ENDPOINT_OVERRIDE=""
 if [[ "${LOCAL_OIDC_PROFILE}" == "oidc-keycloak" ]]; then
   export OIDC_PROVIDER_NAME="keycloak"
   export OIDC_ISSUER_URL="http://keycloak:8080/realms/acornops"
@@ -124,6 +125,7 @@ if [[ "${LOCAL_OIDC_PROFILE}" == "oidc-keycloak" ]]; then
   export OIDC_TOKEN_ENDPOINT_OVERRIDE=""
   export OIDC_USERINFO_ENDPOINT_OVERRIDE=""
   export OIDC_JWKS_URI_OVERRIDE=""
+  export OIDC_END_SESSION_ENDPOINT_OVERRIDE="http://localhost:${KEYCLOAK_PORT:-8082}/realms/acornops/protocol/openid-connect/logout"
 fi
 
 COMPOSE_PROFILE_ARGS=(--profile local --profile "${LOCAL_OIDC_PROFILE}")

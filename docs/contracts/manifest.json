@@ -14,8 +14,25 @@
   "contractSurfaces": {
     "composeProfiles": ["local", "prod", "oidc-dex", "oidc-keycloak", "local-vault"],
     "publicHosts": ["console.acornops.dev", "docs.acornops.dev", "api.acornops.dev"],
-    "publicRoutes": ["/", "/api/v1", "/api/v1/auth/oidc/callback", "/admin/v1"],
+    "publicRoutes": ["/", "/api/v1", "/api/v1/auth/oidc/callback", "/api/v1/auth/oidc/logout/start", "/api/v1/auth/oidc/logout/callback", "/admin/v1"],
     "envTracks": ["local", "vm", "k8s"],
+    "oidcEnv": [
+      "OIDC_ENABLED",
+      "OIDC_ADMISSION_POLICY_JSON",
+      "OIDC_END_SESSION_ENDPOINT_OVERRIDE",
+      "OIDC_POST_LOGOUT_REDIRECT_URI"
+    ],
+    "oidcHelmValues": [
+      "auth.oidc.enabled",
+      "auth.oidc.clientSecret.existingSecret",
+      "auth.oidc.clientSecret.key",
+      "auth.oidc.authorizationEndpoint",
+      "auth.oidc.tokenEndpoint",
+      "auth.oidc.userInfoEndpoint",
+      "auth.oidc.admission",
+      "auth.oidc.logout.endSessionEndpointOverride",
+      "auth.oidc.logout.postLogoutRedirectUri"
+    ],
     "emailVerificationEnv": [
       "PASSWORD_EMAIL_VERIFICATION_REQUIRED",
       "PASSWORD_EMAIL_VERIFICATION_TOKEN_TTL_SECONDS",

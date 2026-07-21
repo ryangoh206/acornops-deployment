@@ -32,13 +32,24 @@ for required in \
   'Strict-Transport-Security' \
   'X-Content-Type-Options' \
   'Referrer-Policy' \
-  'Permissions-Policy'
+  'Permissions-Policy' \
+  'log_format acornops' \
+  '$request_method $uri $server_protocol'
 do
   if ! grep -Fq "${required}" "${TEMPLATE}"; then
     echo "Production edge is missing required public control-plane routing: ${required}" >&2
     exit 1
   fi
 done
+
+if grep -Fq '$request ' "${TEMPLATE}"; then
+  echo "Production edge access logs must omit query strings and one-time authentication handles" >&2
+  exit 1
+fi
+if grep -Fq '$http_referer' "${TEMPLATE}"; then
+  echo "Production edge access logs must omit referrers that could contain provider logout URLs" >&2
+  exit 1
+fi
 
 if grep -Fq '${MANAGEMENT_CONSOLE_PATH_PREFIX}' "${TEMPLATE}"; then
   echo "Production edge must serve the management console at the host root, not a path prefix" >&2

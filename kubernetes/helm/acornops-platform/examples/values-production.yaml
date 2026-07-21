@@ -26,7 +26,6 @@ secrets:
     controlPlane:
       databaseUrl: CONTROL_PLANE_DATABASE_URL
       redisUrl: CONTROL_PLANE_REDIS_URL
-      oidcClientSecret: OIDC_CLIENT_SECRET
       csrfSecret: CSRF_SECRET
       gatewaySigningPrivateKeyPemB64: GATEWAY_SIGNING_PRIVATE_KEY_PEM_B64
       orchestrationServiceToken: ORCH_SERVICE_TOKEN
@@ -46,12 +45,20 @@ secrets:
 
 auth:
   oidc:
+    enabled: true
     providerName: oidc
     issuerUrl: https://keycloak.acornops.dev/realms/acornops
     publicIssuerUrl: ""
     clientId: acornops-control-plane
+    clientSecret:
+      existingSecret: acornops-platform-secrets
+      key: OIDC_CLIENT_SECRET
     httpTimeoutMs: 10000
-    requireVerifiedEmail: true
+    admission:
+      requireVerifiedEmail: true
+    logout:
+      endSessionEndpointOverride: https://keycloak.acornops.dev/realms/acornops/protocol/openid-connect/logout
+      postLogoutRedirectUri: https://console.example.com/api/v1/auth/oidc/logout/callback
   password:
     # Disable this if production should be OIDC-only.
     enabled: true

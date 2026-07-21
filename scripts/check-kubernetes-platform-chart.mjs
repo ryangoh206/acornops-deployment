@@ -1238,7 +1238,9 @@ assertIncludes(
 assertIncludes(defaultRender, 'name: EXTERNAL_INTEGRATION_CLIENTS_JSON', 'control-plane should render external integration clients env');
 assertIncludes(defaultRender, 'key: EXTERNAL_INTEGRATION_CLIENTS_JSON', 'external integration client descriptors should be read from platform secret');
 assertIncludes(defaultRender, 'GATEWAY_VERIFICATION_JWKS_JSON: ""', 'gateway verification keyring should render');
-assertIncludes(defaultRender, 'OIDC_REQUIRE_VERIFIED_EMAIL: "true"', 'OIDC verified email enforcement should default to enabled');
+assertIncludes(defaultRender, 'OIDC_ENABLED: "true"', 'OIDC should default to enabled');
+assertIncludes(defaultRender, 'OIDC_ADMISSION_POLICY_JSON: "{}"', 'OIDC admission should default to allow authenticated identities');
+assertIncludes(defaultRender, 'OIDC_POST_LOGOUT_REDIRECT_URI: "https://console.acornops.dev/api/v1/auth/oidc/logout/callback"', 'OIDC post-logout callback should default to the console callback');
 assertIncludes(defaultRender, 'OIDC_HTTP_TIMEOUT_MS: "10000"', 'OIDC outbound timeout should render');
 assertIncludes(defaultRender, 'fieldPath: metadata.name', 'control-plane should use pod name as instance identity');
 assertMatch(
@@ -1246,6 +1248,41 @@ assertMatch(
   /kind: Deployment[\s\S]*?name: acornops-acornops-platform-control-plane[\s\S]*?terminationGracePeriodSeconds: 45/,
   'control-plane should render a shutdown grace period'
 );
+
+const oidcDisabledRender = helmTemplate([
+  '--set', 'auth.oidc.enabled=false',
+  '--set', 'auth.password.enabled=true',
+  '--set-string', 'auth.oidc.issuerUrl=',
+  '--set-string', 'auth.oidc.clientId=',
+  '--set-string', 'auth.oidc.clientSecret.existingSecret=',
+  '--set-string', 'auth.oidc.clientSecret.key='
+]);
+assertIncludes(oidcDisabledRender, 'OIDC_ENABLED: "false"', 'password-only render should disable OIDC');
+assertIncludes(oidcDisabledRender, 'OIDC_ADMISSION_POLICY_JSON: "{}"', 'password-only render should keep admission empty');
+assertExcludes(oidcDisabledRender, 'name: OIDC_CLIENT_SECRET', 'password-only render should not require an OIDC secret');
+assertExcludes(oidcDisabledRender, 'OIDC_ISSUER_URL:', 'password-only render should omit OIDC provider configuration');
+
+expectHelmFailure([
+  '--set', 'auth.oidc.enabled=false',
+  '--set', 'auth.password.enabled=false'
+], 'the chart must require at least one browser authentication method');
+
+expectHelmFailure([
+  '--set', 'auth.oidc.enabled=false',
+  '--set', 'auth.oidc.admission.requireVerifiedEmail=true'
+], 'OIDC admission must not be configurable when OIDC is disabled');
+expectHelmFailure([
+  '--set-json', 'auth.oidc.admission.requiredClaims=[{"path":["groups"],"operator":"intersects","values":["ops",1]}]'
+], 'OIDC intersects admission values must use one scalar type');
+expectHelmFailure([
+  '--set-json', 'auth.oidc.admission.requiredClaims=[{"path":["__proto__"],"operator":"exists"}]'
+], 'OIDC admission paths must reject unsafe traversal segments');
+expectHelmFailure([
+  '--set-json', 'auth.oidc.scopes=["profile","email"]'
+], 'OIDC scopes must include openid');
+expectHelmFailure([
+  '--set-json', 'auth.oidc.admission.allowedEmailDomains=["*.example.com"]'
+], 'OIDC admission domains must use exact DNS names without wildcards');
 
 const k3sRender = helmTemplate(['-f', k3sValues]);
 for (const component of ['management-console', 'control-plane', 'execution-engine', 'llm-gateway']) {
@@ -1296,7 +1333,8 @@ assertIncludes(productionRender, 'SESSION_IDLE_TIMEOUT_SECONDS: "86400"', 'produ
 assertIncludes(productionRender, 'PASSWORD_SIGNUP_ENABLED: "false"', 'production should keep password signup disabled');
 assertIncludes(productionRender, 'PASSWORD_EMAIL_VERIFICATION_REQUIRED: "true"', 'production should keep password email verification enabled');
 assertIncludes(productionRender, 'PASSWORD_RESET_ENABLED: "true"', 'production should keep password reset enabled');
-assertIncludes(productionRender, 'OIDC_REQUIRE_VERIFIED_EMAIL: "true"', 'production should keep OIDC verified email enforcement enabled');
+assertIncludes(productionRender, 'OIDC_ADMISSION_POLICY_JSON: "{\\"requireVerifiedEmail\\":true}"', 'production example should require verified OIDC email');
+assertIncludes(productionRender, 'OIDC_END_SESSION_ENDPOINT_OVERRIDE: "https://keycloak.acornops.dev/realms/acornops/protocol/openid-connect/logout"', 'production should render the public provider logout endpoint');
 assertIncludes(productionRender, 'OIDC_HTTP_TIMEOUT_MS: "10000"', 'production should render OIDC outbound timeout');
 assertIncludes(productionRender, 'LLM_DEFAULT_PROVIDER: "openai"', 'production should default to OpenAI provider');
 assertIncludes(productionRender, 'LLM_DEFAULT_MODEL: "gpt-5.5"', 'production should default to GPT-5.5');

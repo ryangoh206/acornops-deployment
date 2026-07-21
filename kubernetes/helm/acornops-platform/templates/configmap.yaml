@@ -44,20 +44,27 @@ data:
   AGENTK_HELM_NAMESPACE: {{ .Values.targetAgents.agentk.helm.namespace | quote }}
   AGENTK_HELM_VALUES_JSON: {{ .Values.targetAgents.agentk.helm.values | toJson | quote }}
   AGENTK_HELM_ADDITIONAL_CA_FILE_PATH: {{ .Values.targetAgents.agentk.helm.files.additionalCaBundle.sourcePath | quote }}
+  OIDC_ENABLED: {{ .Values.auth.oidc.enabled | quote }}
+  {{- if .Values.auth.oidc.enabled }}
   OIDC_PROVIDER_NAME: {{ .Values.auth.oidc.providerName | quote }}
   OIDC_ISSUER_URL: {{ .Values.auth.oidc.issuerUrl | quote }}
   OIDC_PUBLIC_ISSUER_URL: {{ .Values.auth.oidc.publicIssuerUrl | quote }}
   OIDC_CLIENT_ID: {{ .Values.auth.oidc.clientId | quote }}
   OIDC_TOKEN_ENDPOINT_AUTH_METHOD: {{ .Values.auth.oidc.tokenEndpointAuthMethod | quote }}
-  OIDC_AUTHORIZATION_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.authorizationEndpointOverride | quote }}
-  OIDC_TOKEN_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.tokenEndpointOverride | quote }}
-  OIDC_USERINFO_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.userinfoEndpointOverride | quote }}
+  OIDC_AUTHORIZATION_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.authorizationEndpoint | quote }}
+  OIDC_TOKEN_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.tokenEndpoint | quote }}
+  OIDC_USERINFO_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.userInfoEndpoint | quote }}
   OIDC_JWKS_URI_OVERRIDE: {{ .Values.auth.oidc.jwksUriOverride | quote }}
+  OIDC_END_SESSION_ENDPOINT_OVERRIDE: {{ .Values.auth.oidc.logout.endSessionEndpointOverride | quote }}
   OIDC_REDIRECT_URI: {{ default (printf "%s/api/v1/auth/oidc/callback" (include "acornops-platform.managementConsoleUrl" .)) .Values.auth.oidc.redirectUri | quote }}
-  OIDC_SCOPES: {{ .Values.auth.oidc.scopes | quote }}
+  OIDC_POST_LOGOUT_REDIRECT_URI: {{ default (printf "%s/api/v1/auth/oidc/logout/callback" (include "acornops-platform.managementConsoleUrl" .)) .Values.auth.oidc.logout.postLogoutRedirectUri | quote }}
+  OIDC_SCOPES: {{ join " " .Values.auth.oidc.scopes | quote }}
   OIDC_USE_USERINFO: {{ .Values.auth.oidc.useUserinfo | quote }}
-  OIDC_REQUIRE_VERIFIED_EMAIL: {{ .Values.auth.oidc.requireVerifiedEmail | quote }}
+  OIDC_ADMISSION_POLICY_JSON: {{ .Values.auth.oidc.admission | toJson | quote }}
   OIDC_HTTP_TIMEOUT_MS: {{ .Values.auth.oidc.httpTimeoutMs | quote }}
+  {{- else }}
+  OIDC_ADMISSION_POLICY_JSON: "{}"
+  {{- end }}
   WEBHOOK_EGRESS_ALLOWED_PRIVATE_HOSTS_JSON: {{ .Values.components.controlPlane.webhookEgress.allowedPrivateHosts | toJson | quote }}
   PASSWORD_AUTH_ENABLED: {{ .Values.auth.password.enabled | quote }}
   PASSWORD_SIGNUP_ENABLED: {{ .Values.auth.password.signupEnabled | quote }}

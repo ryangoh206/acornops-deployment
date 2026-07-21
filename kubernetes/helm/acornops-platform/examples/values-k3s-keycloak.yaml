@@ -21,13 +21,19 @@ exposure:
 
 auth:
   oidc:
+    enabled: true
     issuerUrl: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops
     publicIssuerUrl: https://identity.demo.acornops.dev/realms/acornops
     clientId: acornops-control-plane
-    authorizationEndpointOverride: https://identity.demo.acornops.dev/realms/acornops/protocol/openid-connect/auth
-    tokenEndpointOverride: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops/protocol/openid-connect/token
-    userinfoEndpointOverride: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops/protocol/openid-connect/userinfo
+    clientSecret:
+      existingSecret: acornops-platform-secrets
+      key: OIDC_CLIENT_SECRET
+    authorizationEndpoint: https://identity.demo.acornops.dev/realms/acornops/protocol/openid-connect/auth
+    tokenEndpoint: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops/protocol/openid-connect/token
+    userInfoEndpoint: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops/protocol/openid-connect/userinfo
     jwksUriOverride: http://acornops-keycloak.acornops-identity.svc.cluster.local/realms/acornops/protocol/openid-connect/certs
+    logout:
+      endSessionEndpointOverride: https://identity.demo.acornops.dev/realms/acornops/protocol/openid-connect/logout
   password:
     enabled: false
     signupEnabled: false

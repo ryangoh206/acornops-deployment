@@ -59,7 +59,6 @@ secrets:
     controlPlane:
       databaseUrl: CONTROL_PLANE_DATABASE_URL
       redisUrl: CONTROL_PLANE_REDIS_URL
-      oidcClientSecret: OIDC_CLIENT_SECRET
       csrfSecret: CSRF_SECRET
       gatewaySigningPrivateKeyPemB64: GATEWAY_SIGNING_PRIVATE_KEY_PEM_B64
       orchestrationServiceToken: ORCH_SERVICE_TOKEN
@@ -86,26 +85,39 @@ auth:
     # Sliding browser session idle timeout in seconds.
     idleTimeoutSeconds: 86400
   oidc:
-    # Display/provider identifier used by the control plane.
+    enabled: true
+    # Stable persisted identity namespace. Do not reuse it for an unrelated issuer.
     providerName: oidc
     # Internal issuer URL reachable from the control-plane pod.
     issuerUrl: https://keycloak.acornops.dev/realms/acornops
     # Optional public issuer URL if browser-visible discovery differs from internal issuerUrl.
     publicIssuerUrl: ""
     clientId: acornops-control-plane
+    clientSecret:
+      # Secret reference is used only when OIDC is enabled.
+      existingSecret: acornops-platform-secrets
+      key: OIDC_CLIENT_SECRET
     # Token endpoint client authentication method.
     tokenEndpointAuthMethod: client_secret_basic
     # Optional endpoint overrides for providers behind split internal/public routing.
-    authorizationEndpointOverride: ""
-    tokenEndpointOverride: ""
-    userinfoEndpointOverride: ""
+    authorizationEndpoint: ""
+    tokenEndpoint: ""
+    userInfoEndpoint: ""
     jwksUriOverride: ""
     # Defaults to <platform.consoleUrl>/api/v1/auth/oidc/callback when empty.
     redirectUri: ""
-    scopes: openid profile email
+    scopes:
+      - openid
+      - profile
+      - email
     useUserinfo: true
-    # Keep true unless a trusted provider intentionally emits email_verified=false.
-    requireVerifiedEmail: true
+    # Omitted rules allow any identity that completes OIDC authentication.
+    admission: {}
+    logout:
+      # Optional public browser-facing RP-initiated logout endpoint.
+      endSessionEndpointOverride: ""
+      # Defaults to <platform.consoleUrl>/api/v1/auth/oidc/logout/callback when empty.
+      postLogoutRedirectUri: ""
     httpTimeoutMs: 10000
   password:
     # Username/password auth can run alongside OIDC.

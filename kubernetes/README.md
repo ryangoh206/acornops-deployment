@@ -41,7 +41,7 @@ Default required keys:
 
 - `CONTROL_PLANE_DATABASE_URL`
 - `CONTROL_PLANE_REDIS_URL`
-- `OIDC_CLIENT_SECRET`
+- `OIDC_CLIENT_SECRET` when OIDC is enabled; reference its Secret and key through `auth.oidc.clientSecret`
 - `CSRF_SECRET`
 - `GATEWAY_SIGNING_PRIVATE_KEY_PEM_B64`
 - `ORCH_SERVICE_TOKEN`
@@ -117,7 +117,11 @@ Override at least:
 - `exposure.ingress.tls.secretName`
 - `auth.oidc.issuerUrl`
 - `auth.oidc.clientId`
-- `auth.oidc.requireVerifiedEmail` if a trusted OIDC provider explicitly emits `email_verified=false` for acceptable accounts
+- `auth.oidc.clientSecret.existingSecret` and `auth.oidc.clientSecret.key` when OIDC is enabled
+- `auth.oidc.enabled` when running password-only authentication
+- `auth.oidc.admission` for verified-email, exact email-domain, or required-claim admission rules; an empty policy allows any authenticated OIDC identity
+- `auth.oidc.logout.endSessionEndpointOverride` when discovery advertises an internal hostname that browsers cannot reach
+- `auth.oidc.logout.postLogoutRedirectUri` with the exact URI registered at the provider
 - `auth.password.enabled` if you do not want username/password login alongside OIDC
 - `auth.password.signupEnabled=true` only after SMTP delivery is configured and tested
 - `email.deliveryMode=smtp`, `email.from`, `email.smtp.host`, and `SMTP_USERNAME`/`SMTP_PASSWORD` when enabling password self-service signup
@@ -400,6 +404,13 @@ For single-node k3s testing, use `examples/values-k3s-single-node.yaml`; it sets
 Traefik ingress, all replicas to `1`, and disables PDBs. Use
 `examples/values-k3s-keycloak.yaml` when Keycloak also runs in-cluster behind a
 public identity hostname.
+
+OIDC logout uses RP-initiated logout when discovery or the explicit override
+provides an end-session endpoint. The control plane deletes the current local
+session first. Providers without logout support fall back to local logout, and
+the management console warns that the upstream SSO session may remain active.
+Dex-based environments may intentionally use this local-only fallback when Dex
+does not advertise a browser-usable end-session endpoint.
 
 ## Migration Jobs
 
