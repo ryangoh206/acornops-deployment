@@ -286,11 +286,11 @@ targetAgents:
   agentk:
     helm:
       chartRef: oci://docker.artifact.internal.org/acornops/charts/acornops-agentk
-      chartVersion: 0.0.1-experimental.9
+      chartVersion: 0.0.1-experimental.10
       values:
         image:
           repository: docker.artifact.internal.org/ghcr.io/acornops/agentk
-          tag: 0.0.1-experimental.9
+          tag: 0.0.1-experimental.10
           pullPolicy: IfNotPresent
         imagePullSecrets:
           - name: internal-registry
