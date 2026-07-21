@@ -116,6 +116,7 @@ elif profile_enabled target-fixtures; then
 fi
 
 export OIDC_END_SESSION_ENDPOINT_OVERRIDE=""
+export OIDC_PRELINKED_IDENTITIES_JSON='[{"subject":"Cgt1LWRldi1sb2NhbBIFbG9jYWw","email":"dev@acornops.local","displayName":"Dev User","emailVerified":true}]'
 if [[ "${LOCAL_OIDC_PROFILE}" == "oidc-keycloak" ]]; then
   export OIDC_PROVIDER_NAME="keycloak"
   export OIDC_ISSUER_URL="http://keycloak:8080/realms/acornops"
@@ -126,6 +127,7 @@ if [[ "${LOCAL_OIDC_PROFILE}" == "oidc-keycloak" ]]; then
   export OIDC_USERINFO_ENDPOINT_OVERRIDE=""
   export OIDC_JWKS_URI_OVERRIDE=""
   export OIDC_END_SESSION_ENDPOINT_OVERRIDE="http://localhost:${KEYCLOAK_PORT:-8082}/realms/acornops/protocol/openid-connect/logout"
+  export OIDC_PRELINKED_IDENTITIES_JSON='[{"subject":"10000000-0000-4000-8000-000000000001","email":"dev@acornops.local","displayName":"Dev User","emailVerified":true}]'
 fi
 
 COMPOSE_PROFILE_ARGS=(--profile local --profile "${LOCAL_OIDC_PROFILE}")

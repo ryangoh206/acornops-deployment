@@ -364,6 +364,8 @@ expect(
 expect(
   localCompose.includes('SEED_DEVELOPMENT_DATA: ${SEED_DEVELOPMENT_DATA:-true}')
     && localCompose.includes('SEED_VM_AGENT_KEY: ${SEED_VM_AGENT_KEY:-ak_local_vm_dev_shared_key}')
+    && localCompose.includes('OIDC_PRELINKED_IDENTITIES_JSON:')
+    && localUp.includes('Cgt1LWRldi1sb2NhbBIFbG9jYWw')
     && localCompose.includes('- cluster-fixture')
     && taskfile.includes('local-up-cluster-fixture:'),
   'local deployment should seed Kubernetes and VM targets while retaining the AgentK-only cluster fixture path'

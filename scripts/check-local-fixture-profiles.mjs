@@ -41,6 +41,10 @@ const defaultConfig = render([], {});
 expect(defaultConfig.services['control-plane'].environment.SEED_DEVELOPMENT_DATA === 'true', 'default local profile must seed development targets');
 expect(defaultConfig.services['control-plane'].environment.SEED_AGENT_KEY === 'ak_local_dev_shared_key', 'default local profile must pass the AgentK seed key');
 expect(defaultConfig.services['control-plane'].environment.SEED_VM_AGENT_KEY === 'ak_local_vm_dev_shared_key', 'default local profile must pass the AgentV seed key');
+expect(
+  JSON.parse(defaultConfig.services['control-plane'].environment.OIDC_PRELINKED_IDENTITIES_JSON)[0]?.subject === 'Cgt1LWRldi1sb2NhbBIFbG9jYWw',
+  'default local profile must prelink the seeded owner to the fixed Dex OIDC subject'
+);
 expect(defaultConfig.services['management-console'].environment.VITE_APP_DATA_MODE === 'control-plane', 'full-stack management console must use control-plane data mode');
 expect(!defaultConfig.services.agentk, 'default local profile must not include AgentK');
 expect(!defaultConfig.services.agentv, 'default local profile must not include AgentV');
