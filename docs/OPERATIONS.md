@@ -12,6 +12,21 @@ This repository owns operator workflows for:
 
 Component repositories own service internals. This repository owns how those components are assembled and exposed.
 
+## Durable Webhook Delivery
+
+Every control-plane replica may run the Postgres-backed webhook worker. Claims
+use expiring database leases, so no Redis queue is required. Set
+`WEBHOOK_WORKER_ENABLED=false` to pause new delivery claims while continuing to
+enqueue events safely. Re-enable it after maintenance to drain the backlog.
+
+The default worker claims 50 jobs per sweep, runs 20 deliveries globally and no
+more than 4 per destination origin, and stops retrying after 10 attempts or 24
+hours. Delivery remains HTTPS-only. A private Mattermost bot must use an exact
+hostname in `WEBHOOK_EGRESS_ALLOWED_PRIVATE_HOSTS_JSON` together with the
+matching packet-level egress rule; this does not weaken DNS, redirect, or
+reserved-address protections. External endpoint failures are not readiness
+failures.
+
 ## Production Domains
 
 Default production DNS zone:
