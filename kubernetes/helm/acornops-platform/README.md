@@ -317,9 +317,12 @@ Workflow and target-chat PDF report retention is controlled by `components.contr
 
 External integration account linking uses `EXTERNAL_INTEGRATION_CLIENTS_JSON`
 from the existing platform Secret. The JSON contains installed client
-descriptors with SHA-256 token hashes only, never raw bearer tokens. The key name
-is configured with `secrets.keys.controlPlane.externalIntegrationClientsJson`;
-the default key is `EXTERNAL_INTEGRATION_CLIENTS_JSON`.
+descriptors with SHA-256 token hashes only, never raw bearer tokens. Descriptors
+may include `allowedCapabilities` to set an operator-side maximum for the
+client; users still approve per-workspace grants in the management console. The
+key name is configured with
+`secrets.keys.controlPlane.externalIntegrationClientsJson`; the default key is
+`EXTERNAL_INTEGRATION_CLIENTS_JSON`.
 
 Management-console runtime languages can be customized without rebuilding the
 console image by setting `components.managementConsole.locales.existingConfigMap`
